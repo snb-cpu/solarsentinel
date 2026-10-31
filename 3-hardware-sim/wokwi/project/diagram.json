@@ -53,34 +53,72 @@
       "attrs": {}
     },
     {
+      "type": "wokwi-slide-switch",
+      "id": "swRain",
+      "top": 130,
+      "left": 320,
+      "attrs": {}
+    },
+    {
+      "type": "wokwi-slide-switch",
+      "id": "swLow",
+      "top": 190,
+      "left": 320,
+      "attrs": {}
+    },
+    {
+      "type": "wokwi-slide-switch",
+      "id": "swHigh",
+      "top": 250,
+      "left": 320,
+      "attrs": {}
+    },
+    {
       "type": "wokwi-relay-module",
       "id": "relay1",
-      "top": 220,
-      "left": -60,
+      "top": 280,
+      "left": -120,
       "attrs": {}
     },
     {
       "type": "wokwi-relay-module",
       "id": "relay2",
-      "top": 220,
-      "left": 160,
+      "top": 280,
+      "left": 60,
+      "attrs": {}
+    },
+    {
+      "type": "wokwi-relay-module",
+      "id": "relay3",
+      "top": 280,
+      "left": 240,
       "attrs": {}
     },
     {
       "type": "wokwi-led",
-      "id": "ledV",
-      "top": 330,
-      "left": -10,
+      "id": "ledS",
+      "top": 390,
+      "left": -70,
       "attrs": {
         "color": "blue",
-        "label": "valve"
+        "label": "spray valve"
+      }
+    },
+    {
+      "type": "wokwi-led",
+      "id": "ledT",
+      "top": 390,
+      "left": 110,
+      "attrs": {
+        "color": "purple",
+        "label": "tap valve"
       }
     },
     {
       "type": "wokwi-led",
       "id": "ledB",
-      "top": 330,
-      "left": 210,
+      "top": 390,
+      "left": 290,
       "attrs": {
         "color": "green",
         "label": "blower"
@@ -89,8 +127,8 @@
     {
       "type": "wokwi-resistor",
       "id": "r1",
-      "top": 300,
-      "left": 20,
+      "top": 360,
+      "left": -50,
       "attrs": {
         "value": "220"
       }
@@ -98,8 +136,17 @@
     {
       "type": "wokwi-resistor",
       "id": "r2",
-      "top": 300,
-      "left": 240,
+      "top": 360,
+      "left": 130,
+      "attrs": {
+        "value": "220"
+      }
+    },
+    {
+      "type": "wokwi-resistor",
+      "id": "r3",
+      "top": 360,
+      "left": 310,
       "attrs": {
         "value": "220"
       }
@@ -215,6 +262,42 @@
       []
     ],
     [
+      "swRain:2",
+      "esp:D25",
+      "yellow",
+      []
+    ],
+    [
+      "swRain:1",
+      "esp:GND.2",
+      "black",
+      []
+    ],
+    [
+      "swLow:2",
+      "esp:D26",
+      "yellow",
+      []
+    ],
+    [
+      "swLow:1",
+      "esp:GND.2",
+      "black",
+      []
+    ],
+    [
+      "swHigh:2",
+      "esp:D27",
+      "yellow",
+      []
+    ],
+    [
+      "swHigh:1",
+      "esp:GND.2",
+      "black",
+      []
+    ],
+    [
       "relay1:VCC",
       "esp:VIN",
       "red",
@@ -251,6 +334,24 @@
       []
     ],
     [
+      "relay3:VCC",
+      "esp:VIN",
+      "red",
+      []
+    ],
+    [
+      "relay3:GND",
+      "esp:GND.1",
+      "black",
+      []
+    ],
+    [
+      "relay3:IN",
+      "esp:D18",
+      "blue",
+      []
+    ],
+    [
       "relay1:COM",
       "esp:3V3",
       "red",
@@ -264,12 +365,12 @@
     ],
     [
       "r1:2",
-      "ledV:A",
+      "ledS:A",
       "blue",
       []
     ],
     [
-      "ledV:C",
+      "ledS:C",
       "esp:GND.1",
       "black",
       []
@@ -283,11 +384,35 @@
     [
       "relay2:NO",
       "r2:1",
-      "green",
+      "purple",
       []
     ],
     [
       "r2:2",
+      "ledT:A",
+      "purple",
+      []
+    ],
+    [
+      "ledT:C",
+      "esp:GND.1",
+      "black",
+      []
+    ],
+    [
+      "relay3:COM",
+      "esp:3V3",
+      "red",
+      []
+    ],
+    [
+      "relay3:NO",
+      "r3:1",
+      "green",
+      []
+    ],
+    [
+      "r3:2",
       "ledB:A",
       "green",
       []

@@ -128,7 +128,7 @@ def decide(reading, history=None, cleaning_result=None, weather=None):
                          else "Part of the panel is in shade, not dirt. Washing will not help. Check for nearby objects.")
     elif state == "dust":
         if not tank_ok:
-            out["reason"] = "Dust detected, but the water tank is too low."
+            out["reason"] = "Dust detected, but the water tank is low. The tap inlet is refilling it first."
         elif cleaning_result is None and hot_patch:
             out["clean_now"] = True                      # a hot patch is risky: wash first, then judge by the after-wash model
             out["reason"] = "Local hot patch, probably a bird dropping or dirt. Washing first to find out."

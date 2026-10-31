@@ -23,11 +23,13 @@ Solar panels lose energy silently, and the people who own them find out late or 
 SolarSentinel is a low-cost sensor node with a cleaning system that decides for itself when washing is worth it. It watches each panel, uses machine learning to work out what is wrong, checks the weather, and cleans only when it makes economic sense.
 
 ### 2.1 Sense (hardware)
-- A **grid of cheap analog temperature sensors** under the panel, placed at several points. This replaces an expensive thermal camera and gives a coarse thermal map.
-- A **voltage sensor and a current sensor** to measure the panel's real power output.
-- An **LDR** to measure how much sunlight is available, so we know how much power the panel should be producing.
-- A **tank level** reading for the rainwater store.
-- An **ESP32** reads everything every minute and sends it over Wi-Fi.
+Exact parts are in [COMPONENTS.md](COMPONENTS.md). In short:
+- A grid of **eight LM35DZ temperature sensors** on the back of each panel (2 x 4), read through a **CD74HC4051E** multiplexer. This replaces an expensive thermal camera and gives a coarse thermal map.
+- **Four GL5528 LDRs**, one at each corner (second CD74HC4051E), so a shadow or passing cloud is not mistaken for dirt.
+- Panel **voltage** (56k/10k divider) and **current** (ACS712-20A) for the real power output.
+- Everything analog is read by one **ADS1115** 16-bit I2C ADC (address 0x48). An **INA219** (0x40) measures what the node itself draws.
+- **Tank level** from a JSN-SR04T-2.0 ultrasonic sensor plus two float switches, and a **FC-37** rain sensor.
+- An **ESP32** (DFRobot FireBeetle) reads everything and sends it over Wi-Fi.
 
 ### 2.2 Understand (ML, `2-ml-ai/`)
 1. **Thermal heatmap.** The model turns the temperature grid into a 2D heatmap. Dust, droppings and shadows make heat build up in patches.
@@ -54,7 +56,11 @@ When the decision is "clean now":
 2. **Air dry.** A blower then blows the remaining droplets off, so no mineral spots dry on the glass.
 3. **Backup timer.** Independently of the AI, a 2-hour timer can run a cycle, and the ESP32 keeps working locally if Wi-Fi drops.
 
-The water comes from **harvested rainwater**, so cleaning uses no mains water.
+### 2.5b Water: rain first, tap as the back-up
+The 20 L tank on each panel has two inlets. A **rain gutter** fills it for free. A second **12 V solenoid valve** on the **tap** opens only when the tank falls below 25%, closes at 85%, stays shut if rain is forecast (unless the tank is nearly empty), and shuts itself after 3 minutes if the level sensor is stuck. A wash never starts with less than 8% in the tank. Details and plumbing rules: [POWER-AND-WATER.md](POWER-AND-WATER.md).
+
+### 2.5c Day-only power
+The node must not eat the energy it saves. It works only in daylight and dry weather. At night, in heavy cloud and in rain it **deep-sleeps**: radio off, the whole 5 V sensor rail switched off, valves shut, about 1.3 mW. It wakes every 20 minutes (10 in rain) just to look at the sun and the rain sensor. Awake it draws about 250 mW, so a node uses about 2.4 Wh a day against about 6 Wh if it never slept, roughly 0.5% of a 100 W-class panel's output. The INA219 measures it for real.
 
 ### 2.6 Show (UI, `1-ui-design/`)
 A dashboard shows live voltage, current, light and tank level, the thermal heatmap, the decision card (state, loss, rupees lost per day, clean yes/no and the reason), the 7-day forecast, and the cleaning history with a manual "clean now" button.

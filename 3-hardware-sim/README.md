@@ -1,7 +1,16 @@
-# 3-hardware-sim  (owner: Sanjay)
+# 3-hardware-sim  (owner: Sanjay, the Mac)
 
-- `firmware/solarsentinel/` ESP32 firmware (compiles clean). Reads V, I, light and a temperature grid, publishes MQTT readings, runs the water-then-air cleaning cycle on command and on a 2-hour backup timer.
-- `sim/` fake node that emits the same readings, so Pratham and Shashank can build without hardware.
-- `WIRING.md` pins, parts, safety, calibration, flash steps.
+- `firmware/solarsentinel/` real ESP32 firmware (compiles). Reads the panel through an **ADS1115** I2C ADC (via two **CD74HC4051E** multiplexers: 8x LM35DZ temperatures, 4x GL5528 corner LDRs), measures its own power with an **INA219**, POSTs readings, polls for clean commands, runs the water-then-air wash, refills the tank from the tap when low, and **sleeps at night and in rain**. Exact parts: [`../docs/COMPONENTS.md`](../docs/COMPONENTS.md). Design: [`../docs/POWER-AND-WATER.md`](../docs/POWER-AND-WATER.md).
+- `sim/virtual_node.py` the virtual panels + ESP32s: sun cycle, clouds, dust, rain, heat, faults, a 20 L tank with rain and tap inlets, plus a port of the firmware logic using the same constants (read from `config.h`) and imperfect "hardware" (ADS1115 counts and noise, divider error, sensor error, ultrasonic noise).
+- `sim/console.html` the hardware view at http://localhost:8100: tank with both inlets, tap valve, spray valve, blower, relays, the ESP32 and its pins, the I2C devices, the firmware loop with the running line highlighted, the wash and power-mode state machines, the day-only power meter, the live ADS1115 table, and the trouble buttons (cloud, bird, shade, hotspot, cracked cell, drain the tank, rain, skip to dusk/night/morning).
+- `sim/world.py` the physics: per-cell heat balance, mismatch hotspots, bird droppings that need extra water, sensors that lag the cells, spray cooling, rain washing, tank and water accounting, and an energy ledger that compares the cleaned panel with a never-cleaned copy.
+- `sim/test_node.py` self-checks for the tap refill and the day-only sleep logic. `sim/sim.py` is the older simple generator.
+- Time scale: `--speed N` or the Time buttons (pause, 1x, 10x, 60x, 120x, 300x, 1200x), plus "skip to" buttons that fast-forward with all the logic running. At 120x one real second is 2 simulated minutes and a day passes in 12 minutes.
+- `wokwi/` the same firmware inside Wokwi, with relays and LEDs ([`wokwi/README.md`](wokwi/README.md)).
+- `WIRING.md` pins, I2C addresses, ADS1115 channels, the switched sensor rail, calibration, safety, flashing.
 
-Branch: `hw/sanjay`. Final integration on the Mac.
+```
+python3 sim/virtual_node.py --api http://<API-IP>:8000     # 3 panels; hardware view and controls: http://localhost:8100
+python3 sim/test_node.py                                    # 10 checks
+```
+Branch: `hw/sanjay`.

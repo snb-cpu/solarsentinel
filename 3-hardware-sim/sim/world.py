@@ -1,7 +1,7 @@
 """Physics of one solar panel and the world around it. Used by virtual_node.py.
 
 Layout: 8 temperature sensors, 2 rows x 4 columns, index = row*4 + col.
-Time is accelerated by the caller: step(dt_sim_seconds, real_seconds, valve, blower). Big steps are split
+Time is accelerated by the caller: step(dt_sim_seconds, real_seconds, spray, blower, tap). Big steps are split
 into sub-steps of at most MAX_SUB seconds, so the thermal physics stays correct at any speed (1x to 3000x).
 
 What is modelled (per cell, in W/m2 of panel area):
@@ -14,6 +14,10 @@ What is modelled (per cell, in W/m2 of panel area):
   conduction = to the 4 neighbouring cells (K_LAT) and nothing else; the thermal mass C_TH gives a ~6 min time constant
 The sensors sit on the back sheet: they follow the cell with an extra 2 minute lag and read ~1.5 C lower.
 Dust builds up slowly and is washed off quickly; bird droppings are stuck on and need more water; rain washes both slowly.
+
+Water: a 20 L tank per panel with two inlets, rain (gutter, passive) and tap (solenoid valve), and one outlet (the spray valve).
+Energy ledger: how much power dirt cost, and what it WOULD have cost with no cleaning at all (a shadow copy of the dirt that is
+never washed), so the dashboard can show what cleaning recovered against what the node itself used.
 """
 import math, random
 
@@ -28,6 +32,10 @@ H_BASE, H_WIND = 16.0, 5.0           # W/m2K, plus per m/s of wind
 K_LAT = 6.0                          # W/m2K cell-to-cell conduction
 ETA = 0.18                           # cell efficiency
 MAX_SUB = 20.0                       # s, largest physics step (stable: h*MAX_SUB/C_TH << 1)
+TANK_L = 20.0                        # litres
+SPRAY_L_S = 0.2                      # litres per second through the spray pipe (4 nozzles)
+TAP_L_S = 0.17                       # litres per second through the tap inlet valve (about 10 L/min)
+RAIN_FILL_PCT_H = 30.0               # tank percent per hour gained from the gutter while it rains
 
 def _neighbours(i):
     r, c = divmod(i, COLS)
@@ -39,6 +47,7 @@ class World:
         self.t = start_hour * 3600.0
         self.dust = [0.0] * N              # loose dust on each cell (0..0.4)
         self.stuck = [0.0] * N             # bird droppings: stuck on
+        self.dust_nc, self.stuck_nc = [0.0] * N, [0.0] * N     # the same dirt in a world where nobody ever cleans (for the ledger)
         self.hvar = [random.uniform(0.94, 1.06) for _ in range(N)]   # cell-to-cell cooling differences
         self.wind = 2.0
         self.cloud, self.raining, self.forecast_rain = 0.1, False, False
@@ -46,9 +55,15 @@ class World:
         self.dust_rate = 0.015 * dust_mult   # dust per sim hour
         self.faults = {"crack": False, "hotspot": False, "shade": False}
         self.cloud_x = None                # a passing cloud: x position (0 = left edge of the panel, 1 = right) of a shadow band, or None
-        self.tank = 70.0                   # percent
+        self.tank = 70.0                   # percent of TANK_L
+        self.tap_used_l = self.rain_in_l = self.spray_used_l = 0.0       # litres in and out, since the start
+        self.yield_wh = self.lost_wh = self.lost_nc_wh = 0.0             # panel output, loss to dirt, loss to dirt with no cleaning
         self.tcell = [self.ambient() + 12.0] * N
         self.tback = list(self.tcell)
+
+    # ---- dirt helpers (keep the no-cleaning shadow copy in step) ----
+    def add_bird(self, i, amount=0.5): self.stuck[i] = amount; self.stuck_nc[i] = amount
+    def set_dust(self, levels): self.dust = list(levels); self.dust_nc = list(levels)
 
     # ---- environment ----
     def hour(self): return (self.t / 3600) % 24
@@ -67,18 +82,19 @@ class World:
     def light_factor_at(self, x):                           # how much sun reaches a point at horizontal position x (0..1)
         return (0.4 if self.faults["shade"] and x < 0.5 else 1.0) * self.cloud_factor(x)
     def light_factor(self, i): return self.light_factor_at(((i % COLS) + 0.5) / COLS)
-    def transmit(self, i):                                  # fraction of sunlight the cell actually gets (dirt x shade x cloud)
-        return (1 - self.soil(i)) * self.light_factor(i)
-    def string_factor(self):                                # series string: the weak cells drag the rest down
-        tr = [self.transmit(i) for i in range(N)]
+    def transmit(self, i, soil=None):                       # fraction of sunlight the cell actually gets (dirt x shade x cloud)
+        s = self.soil(i) if soil is None else soil[i]
+        return (1 - s) * self.light_factor(i)
+    def string_factor(self, soil=None):                     # series string: the weak cells drag the rest down
+        tr = [self.transmit(i, soil) for i in range(N)]
         return 0.75 * sum(tr) / N + 0.25 * min(tr), tr
 
     # ---- time stepping ----
-    def step(self, dt, real, valve, blower):
+    def step(self, dt, real, spray, blower, tap=False):
         n = max(1, math.ceil(dt / MAX_SUB)) if dt > 0 else 1
-        for _ in range(n): self._sub(dt / n, real / n, valve, blower)
+        for _ in range(n): self._sub(dt / n, real / n, spray, blower, tap)
 
-    def _sub(self, dt, real, valve, blower):
+    def _sub(self, dt, real, spray, blower, tap):
         self.t += dt
         # weather
         if not self.raining:
@@ -96,17 +112,26 @@ class World:
         self.wind = min(10.0, max(0.0, self.wind + (target_wind - self.wind) * dt / 1800 + 0.5 * math.sqrt(dt / 60) * random.gauss(0, 1)))
         if self.raining:
             self.cloud = 0.9
-            k = math.exp(-dt / 3600 * 1.2); self.dust = [d * k for d in self.dust]
-            k = math.exp(-dt / 3600 * 0.3); self.stuck = [s * k for s in self.stuck]
-            self.tank = min(100.0, self.tank + dt / 3600 * 15)
-        # dust deposition (wind helps), washing (real seconds of water)
+            k = math.exp(-dt / 3600 * 1.2); self.dust = [d * k for d in self.dust]; self.dust_nc = [d * k for d in self.dust_nc]
+            k = math.exp(-dt / 3600 * 0.3); self.stuck = [s * k for s in self.stuck]; self.stuck_nc = [s * k for s in self.stuck_nc]
+            add = min(100.0 - self.tank, dt / 3600 * RAIN_FILL_PCT_H)       # the gutter fills the tank
+            self.tank += add; self.rain_in_l += add * TANK_L / 100
+        # dust deposition (wind helps), identical in the no-cleaning copy
         rate = self.dust_rate * (1 + 0.15 * self.wind) * (8 if storm else 1)
-        self.dust = [min(0.4, d + dt / 3600 * rate * random.uniform(0.4, 1.6)) for d in self.dust]
-        wet = valve and self.tank > 0
+        draws = [random.uniform(0.4, 1.6) for _ in range(N)]
+        self.dust = [min(0.4, d + dt / 3600 * rate * r) for d, r in zip(self.dust, draws)]
+        self.dust_nc = [min(0.4, d + dt / 3600 * rate * r) for d, r in zip(self.dust_nc, draws)]
+        # water out: the spray valve strips dirt quickly and drains the tank
+        wet = spray and self.tank > 0
         if wet:
             self.dust = [d * math.exp(-real / 1.5) for d in self.dust]
             self.stuck = [s * math.exp(-real / 3.0) for s in self.stuck]
-            self.tank = max(0.0, self.tank - 1.0 * real)
+            use = min(self.tank, SPRAY_L_S * real / TANK_L * 100)
+            self.tank -= use; self.spray_used_l += use * TANK_L / 100
+        # water in: the tap inlet valve (whatever does not fit overflows, but it is still tap water drawn)
+        if tap:
+            litres = TAP_L_S * real
+            self.tap_used_l += litres; self.tank = min(100.0, self.tank + litres / TANK_L * 100)
         # heat balance
         g0, tamb = self.irradiance(), self.ambient()
         tref = tamb - 2.0 if g0 < 1 else tamb
@@ -126,13 +151,26 @@ class World:
         self.tcell = new
         a = 1 - math.exp(-dt / 120)                                     # back-sheet sensor lag
         self.tback = [b + (t - 1.5 - b) * a for b, t in zip(self.tback, self.tcell)]
+        # energy ledger: what the panel made, what dirt cost, and what dirt would have cost with no cleaning at all
+        if g0 > 1:
+            v, i_act = self.electrical()
+            i_clean = self.electrical([0.0] * N)[1]
+            i_nc = self.electrical([min(0.7, self.dust_nc[i] + self.stuck_nc[i]) for i in range(N)])[1]
+            hr = dt / 3600
+            self.yield_wh += v * i_act * hr
+            self.lost_wh += max(0.0, v * (i_clean - i_act)) * hr
+            self.lost_nc_wh += max(0.0, v * (i_clean - i_nc)) * hr
 
     # ---- electrical ----
-    def electrical(self):
-        isf, _ = self.string_factor(); g = self.irradiance(); tavg = sum(self.tcell) / N
+    def electrical(self, soil=None):
+        isf, _ = self.string_factor(soil); g = self.irradiance(); tavg = sum(self.tcell) / N
         i_a = ISC_A * g * isf / 1000 * (1 + 0.0005 * (tavg - 25)) * (0.8 if self.faults["crack"] else 1.0)
         v = VOC_V * (1 - 0.004 * (tavg - 25)) * (0.85 + 0.15 * min(1.0, g / 200)) if g > 1 else 0.0
         return max(v, 0.0), max(i_a, 0.0)
     def lux_corners(self):                                  # what the four LDRs see (they sit beside the panel, so no dirt, but the same shadows)
         return [self.irradiance() * LUX_PER_WM2 * self.light_factor_at(x) for x, _ in LDR_CORNERS]
     def lux(self): return sum(self.lux_corners()) / len(LDR_CORNERS)
+    def ledger(self):
+        return {"yield_wh": self.yield_wh, "lost_wh": self.lost_wh, "lost_nc_wh": self.lost_nc_wh,
+                "recovered_wh": max(0.0, self.lost_nc_wh - self.lost_wh),
+                "tap_l": self.tap_used_l, "rain_l": self.rain_in_l, "spray_l": self.spray_used_l}

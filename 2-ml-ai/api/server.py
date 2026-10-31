@@ -1,7 +1,7 @@
 """SolarSentinel API + brain. Laptop B (Pratham). Standard library only.
 
   python3 2-ml-ai/api/server.py               # listens on :8000
-Node (laptop A) -> POST /api/reading, POST /api/weather, GET /api/command
+Node (laptop A) -> POST /api/reading, POST /api/status (going to sleep), POST /api/weather, GET /api/command (clean order + tap policy)
 UI   (laptop C) -> GET /events (live stream), POST /api/clean (customer's manual wash)
 Decision: uses 2-ml-ai/decide.py `decide(reading, weather) -> dict` if it imports and works, else the built-in rules below.
 Replace builtin_decide with real ML step by step; the contract in docs/contract.md must keep holding.
@@ -17,6 +17,8 @@ ARRAY_KW, PEAK_SUN_H, TARIFF_INR, CLEAN_COST_INR = 1.5, 4.8, 8.0, 2.0   # per pa
 ISC_A = 5.5                   # panel current at 100,000 lux, clean. Calibrate on the real rig.
 MIN_LUX = 20000               # below this, analysis is paused (night / heavy cloud)
 CMD_COOLDOWN_S = 30
+TANK_L, SPRAY_L_S, TAP_L_S = 20.0, 0.2, 0.17      # litres, and litres per second through the spray valve and the tap inlet valve (same as the firmware and the simulator)
+MIN_TANK_PCT = 20             # below this a wash is put off until the tap inlet has refilled the tank
 ML_STALE_S = 8                # if the ML program (Pratham's laptop) has not answered for a panel in this long, fall back to the built-in rules
 SETTLE_S = 25                 # real seconds to let a washed panel cool before judging a hot spot (assumes demo speed of 60x or more)
 
@@ -50,6 +52,7 @@ def builtin_decide(r, rain, ctx=None):
     elif state == "shading": go, why = False, ("Uneven light across the panel (a shadow or passing cloud), not dirt. No wash." if uneven else "Part of the panel is in shade, not dirt. Washing will not help.")
     elif state == "ok": go, why = False, "Panel is clean and producing as expected."
     elif rain: go, why = False, "Dust detected, but rain is forecast within 48 h. Letting the rain clean it."
+    elif 0 <= r.get("tank_level_pct", 100) < MIN_TANK_PCT: go, why = False, "Dust detected, but the water tank is low. Refilling it from the tap first."
     elif inr > CLEAN_COST_INR: go, why = True, f"Dust is costing Rs {inr:.0f}/day, more than the Rs {CLEAN_COST_INR:.0f} wash. Cleaning now."
     else: go, why = False, "Dust loss is still smaller than the cost of a wash."
     return {**base, "state": state, "efficiency_loss_pct": round(loss, 1), "clean_now": go, "reason": why, "loss_inr_per_day": round(inr, 1), "hot": hot}
@@ -71,10 +74,11 @@ class App:
         with self.lock:
             pid = r.get("panel_id", "P1"); r["ts"] = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
             if pid not in self.p:
-                self.p[pid] = {"washed_hot": False, "settle_until": 0.0, "reading": None, "decision": None, "source": "rules", "ml_at": 0.0,
+                self.p[pid] = {"washed_hot": False, "settle_until": 0.0, "reading": None, "decision": None, "source": "rules", "ml_at": 0.0, "mode": "active", "sleep": None,
                                "rx": 0.0, "history": [], "pending": None, "last_cmd": 0.0, "prev_cs": 0}
                 self.say(f"{pid}: node connected.")
             st = self.p[pid]; st["rx"] = time.time(); st["reading"] = r
+            if st["mode"] == "sleep": self.say(f"{pid}: woke up (daylight and dry)."); st["mode"], st["sleep"] = "active", None
             cs = r.get("clean_state", 0)
             done = st["prev_cs"] == 2 and cs == 0
             if done:
@@ -103,6 +107,14 @@ class App:
         st["decision"] = d
         if d["clean_now"] and st["prev_cs"] == 0 and not st["pending"] and time.time() - st["last_cmd"] > CMD_COOLDOWN_S:
             self.queue_clean(pid, "AI decision: " + d["reason"])
+    def on_status(self, b):                                         # POST /api/status: the node says it is going to sleep (so it is not 'offline')
+        with self.lock:
+            pid = b.get("panel_id"); st = self.p.get(pid)
+            if not st or b.get("mode") != "sleep": return
+            why = {"dark": "it is dark or heavily overcast", "rain": "it is raining"}.get(b.get("reason"), b.get("reason"))
+            self.say(f"{pid}: going to sleep because {why}. Radio and sensors off; it looks at the sun every {int(b.get('wake_s', 0)) // 60} min.")
+            st["mode"], st["sleep"] = "sleep", {"reason": b.get("reason"), "wake_s": b.get("wake_s"), "since": time.time()}
+        self.push()
     def on_decision(self, d):                                       # POST /api/decision from the ML program
         with self.lock:
             st = self.p.get(d.get("panel_id"))
@@ -117,14 +129,20 @@ class App:
         with self.lock:
             panels = []
             for pid in sorted(self.p):
-                x = self.p[pid]; panels.append({"id": pid, "source": x["source"], "reading": x["reading"], "decision": x["decision"], "history": x["history"], "age_s": round(time.time() - x["rx"], 1)})
+                x = self.p[pid]; panels.append({"id": pid, "mode": x["mode"], "sleep": x["sleep"], "source": x["source"], "reading": x["reading"], "decision": x["decision"], "history": x["history"], "age_s": round(time.time() - x["rx"], 1)})
             ds = [x["decision"] for x in self.p.values() if x["decision"]]
-            site = {"power_w": round(sum(x["history"][-1]["p"] for x in self.p.values() if x["history"]), 1),
+            rd = [x["reading"] for x in self.p.values() if x["reading"]]
+            site = {"power_w": round(sum(x["history"][-1]["p"] for x in self.p.values() if x["history"] and x["mode"] == "active"), 1),
+                    "node_mw": round(sum(x["reading"].get("node_mw", 0) for x in self.p.values() if x["reading"] and x["mode"] == "active"), 1),
+                    "asleep": sum(1 for x in self.p.values() if x["mode"] == "sleep"),
+                    "node_wh": round(sum(r.get("node_wh", 0) for r in rd), 3),
+                    "tap_l": round(sum(r.get("tap_s", 0) for r in rd) * TAP_L_S, 1), "spray_l": round(sum(r.get("spray_s", 0) for r in rd) * SPRAY_L_S, 1),
+                    "tap_open": sum(1 for r in rd if r.get("tap_open")),
                     "loss_inr_per_day": round(sum(d["loss_inr_per_day"] for d in ds), 1), "history": self.site_hist,
                     "forecast_kwh_7d": [round(sum(d["forecast_kwh_7d"][i] for d in ds), 1) for i in range(7)] if ds else [],
                     "forecast_clean_kwh_7d": [round(sum(d["forecast_clean_kwh_7d"][i] for d in ds), 1) for i in range(7)] if ds else []}
             return {"panels": panels, "site": site, "weather": self.weather, "log": self.log, "ml": ("ML model" if any(x["source"] == "ml" for x in self.p.values()) else "built-in rules"), "ml_connected": bool(self.ml_clients), "sim": self.sim,
-                    "econ": {"panel_kw": ARRAY_KW, "tariff": TARIFF_INR, "clean_cost": CLEAN_COST_INR}}
+                    "econ": {"panel_kw": ARRAY_KW, "tariff": TARIFF_INR, "clean_cost": CLEAN_COST_INR, "tank_l": TANK_L, "tap_l_s": TAP_L_S, "spray_l_s": SPRAY_L_S}}
     def push(self):
         data = f"data: {json.dumps(self.snapshot())}\n\n".encode()
         for q in list(self.clients): q.put(data)
@@ -152,7 +170,8 @@ class H(BaseHTTPRequestHandler):
             with app.lock:
                 st = app.p.get(pid); c = (st["pending"] or {}) if st else {}
                 if st: st["pending"] = None
-            self.reply(json.dumps(c).encode())
+            c = {**c, "tap_hold": bool(app.weather.get("rain_48h"))}           # rain is coming: do not buy tap water unless the tank is critical
+            self.reply(json.dumps(c, separators=(",", ":")).encode())
         elif self.path.startswith("/api/ml/stream"):
             self.send_response(200); self.send_header("Content-Type", "text/event-stream"); self.send_header("Cache-Control", "no-cache"); self.end_headers()
             q = queue.Queue(); app.ml_clients.append(q); app.say("ML program connected.")
@@ -175,6 +194,7 @@ class H(BaseHTTPRequestHandler):
                 if body.get("rain_48h") != app.weather["rain_48h"]: app.say("Weather feed: rain expected within 48 h" if body.get("rain_48h") else "Weather feed: no rain expected")
                 app.weather = body
         elif self.path == "/api/decision": app.on_decision(body)
+        elif self.path == "/api/status": app.on_status(body)
         elif self.path == "/api/sim":
             with app.lock: app.simq.append(body)
             app.say(f"Demo control: {body.get('cmd')}" + (f" on panel {int(body.get('panel', 0)) + 1}" if body.get("cmd") in ("bird", "dirty", "shade", "hotspot", "crack", "repair") else ""))

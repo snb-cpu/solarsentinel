@@ -26,6 +26,10 @@ The Mac needs no ML libraries. Put it on the internet for the web app: [CLOUDFLA
 3. A: click **Rain forecast**, then **Make dirty now**. B refuses to wash ("rain is coming"). Rain later cleans the panel for free.
 4. A: click **Cracked cell**. Hot cell on the heatmap, state "cracked cell", no water used, technician advice. A fault is never washed.
 5. A: **Shade**. State "shaded", no wash.
-6. Optional: turn on the **2 h timer** on A to show the backup. Note it washes even when not needed, which is why AI-driven washing is better.
+6. A: **Drain the tank**. The tap valve (K2) opens, the tank refills from 12% to 85%, the valve closes. Rain is the first source, tap water the back-up.
+7. A: **Rain forecast**, then **Drain the tank** again. The API tells the node to hold: it does not buy tap water (unless the tank gets critical).
+8. A: **Skip to night**. Each node finishes its job, tells the API and goes to deep sleep: radio and sensors off, draw falls from about 250 mW to 1.3 mW, the dashboard says "asleep". **Skip to morning** and they wake by themselves.
+9. A: **Start rain now**. The nodes sleep with reason "rain" (the rain is cleaning the panels and filling the tank). After the rain they wake and the ML checks for stains.
+10. Optional: turn on the **2 h timer** to show the backup. Note it washes even when not needed, which is why AI-driven washing is better.
 
 If B is not ready yet, run the whole thing alone on one laptop: start B's server, A's simulator and open C's page, all with `localhost`.

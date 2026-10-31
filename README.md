@@ -10,9 +10,9 @@ Each person pushes ONLY inside their own folder. No one edits another person's f
 
 | Folder | Owner | Job |
 |---|---|---|
-| `1-ui-design/` | [name] | Canva designs, exported PNG/PDF, screen list |
-| `2-ml-ai/` | [name] | Thermal heatmap + anomaly model, weather-aware decision, 7-day forecast + ROI |
-| `3-hardware-sim/` | [name] | ESP32 firmware, wiring, sensor + actuator simulation |
+| `1-ui-design/` | Shashank | Canva designs, exported PNG/PDF, screen list, plus the pitch deck and other non-code items |
+| `2-ml-ai/` | Pratham | Python. Thermal heatmap + anomaly model, weather-aware decision, 7-day forecast + ROI |
+| `3-hardware-sim/` | Sanjay | ESP32 firmware, wiring, sensor + actuator simulation, final integration on the Mac |
 | `docs/` | everyone | `contract.md` = shared data formats (read this first) |
 
 Later everything is combined and run on the main Mac.

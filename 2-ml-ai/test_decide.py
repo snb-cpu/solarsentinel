@@ -152,6 +152,20 @@ class DecisionTests(unittest.TestCase):
         reading["ldr_corners_lux"] = [60000] * 4                      # same power loss, even light: that is dirt
         self.assertTrue(decide(reading, weather=self.WEATHER)["clean_now"])
 
+    @patch("decide.predict_panel")
+    def test_trace_explains_the_decision(self, prediction):
+        prediction.return_value = {"state": "dust", "model_score_pct": 93.0}
+        reading = sample_reading(); reading["current_a"] = 3.0
+        wash = decide(reading, weather=self.WEATHER)
+        steps = {t["step"]: t for t in wash["trace"]}
+        self.assertTrue(wash["clean_now"] and steps["Decision"]["ok"] and steps["Light"]["ok"] and steps["Money"]["ok"])
+        reading["ldr_corners_lux"] = [35000, 98000, 35000, 98000]     # shadow: the Light check is the one that blocks
+        shade = decide(reading, weather=self.WEATHER)
+        steps = {t["step"]: t for t in shade["trace"]}
+        self.assertFalse(shade["clean_now"] or steps["Decision"]["ok"] or steps["Light"]["ok"])
+        rain = decide({**sample_reading(), "current_a": 3.0}, weather={**self.WEATHER, "rain_48h": True})
+        self.assertFalse({t["step"]: t for t in rain["trace"]}["Rain"]["ok"])
+
     def test_any_grid_size_works(self):
         from heatmap import make_heatmap
         self.assertEqual(len(make_heatmap([[40, 41, 42, 41], [40, 50, 41, 41]])[0]), 4)

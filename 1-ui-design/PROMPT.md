@@ -1,5 +1,7 @@
 # Gemini prompts for the customer UI (Shashank)
 
+> **Read first (Oct 31).** `webapp/index.html` was rebuilt by hand on the shared design in `../shared/` (see README.md). Use these prompts only for small changes, and give Gemini `webapp/index.html`, `../shared/ss.css` and `../shared/ss.js` together. The zip below is the older brief.
+
 How to use:
 1. Upload `solarsentinel-ui-brief.zip` (in this folder) to Gemini. It holds `index.html`, `contract.md` and `sample-snapshot.json`.
 2. Paste Prompt 1. Then Prompt 2. Then any fine-tune prompts you need.

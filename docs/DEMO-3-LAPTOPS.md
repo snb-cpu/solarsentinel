@@ -12,13 +12,13 @@
 **Pratham runs the ML program**, which streams readings from the API, decides, shows the output in his terminal and sends it back to the API. If it stops, the API's built-in rules take over.
 **The UI** only talks to the API.
 
-All on the same Wi-Fi (a phone hotspot works). Get the Mac's IP: `ipconfig getifaddr en0`.
+**Exact commands per person and per system: [WHO-RUNS-WHAT.md](WHO-RUNS-WHAT.md).** In short, with one launcher (`run.sh`) per machine:
 
-1. **Mac** `python3 2-ml-ai/api/server.py` then `python3 3-hardware-sim/sim/virtual_node.py --api http://localhost:8000`  (hardware view: http://localhost:8100)
-2. **Pratham** `git pull`, then `python ml_worker.py --api http://<MAC-IP>:8000`  (from the `2-ml-ai` folder, with its venv)
-3. **Shashank** `cd 1-ui-design/webapp && python3 -m http.server 8200` then open `http://localhost:8200/?api=http://<MAC-IP>:8000`
+1. **Mac** `./run.sh --no-ml` starts the API and the simulated panels. Hardware view `http://localhost:8100`.
+2. **Pratham** `git pull`, then `./run.sh http://<MAC-IP>:8000 --no-sim` (`ipconfig getifaddr en0` on the Mac gives the address). His screen: the terminal, plus the ML console `http://<MAC-IP>:8000/ml/`.
+3. **Shashank / judges** open `http://<MAC-IP>:8000/` (the customer app).
 
-The Mac needs no ML libraries. Put it on the internet for the web app: [CLOUDFLARE.md](CLOUDFLARE.md).
+If the venue Wi-Fi stops laptops seeing each other, put the API and the three pages on Cloudflare once (`./cloud/deploy.sh`) and give both machines the address `https://solarsentinel-api.pages.dev`; or run both programs on one always-on Ubuntu machine. See [CLOUDFLARE.md](CLOUDFLARE.md).
 
 ## Demo script (about 3 minutes)
 1. Healthy panel. Customer sees clean heatmap, power, forecast. (C)

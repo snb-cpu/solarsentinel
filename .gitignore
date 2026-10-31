@@ -8,3 +8,8 @@
 __pycache__/
 node_modules/
 venv/
+
+# Cloudflare tooling
+.wrangler/
+cloud/.build/
+logs/

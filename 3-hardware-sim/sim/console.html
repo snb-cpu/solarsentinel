@@ -1,263 +1,363 @@
 <!doctype html>
-<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
 <title>SolarSentinel hardware view</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Ccircle cx='12' cy='12' r='5' fill='%23FFC21A' stroke='%2316191C' stroke-width='2'/%3E%3Cpath d='M12 1.5v3M12 19.5v3M1.5 12h3M19.5 12h3M4.6 4.6l2.1 2.1M17.3 17.3l2.1 2.1M4.6 19.4l2.1-2.1M17.3 6.7l2.1-2.1' stroke='%2316191C' stroke-width='2' stroke-linecap='round'/%3E%3C/svg%3E">
+<link rel="stylesheet" href="../../shared/ss.css">
 <style>
-:root{--bg:#0b1d33;--card:#12294a;--line:#23406a;--txt:#eaf2fb;--mut:#8fa9c2;--amb:#ffb703;--on:#2ecc71;--water:#4fc3f7;--tap:#7b8cff;--bad:#ff6b4a}
-*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--txt);font:14px/1.4 -apple-system,Segoe UI,Arial,sans-serif}
-header{display:flex;align-items:center;gap:14px;flex-wrap:wrap;padding:12px 22px;border-bottom:1px solid var(--line)}header h1{font-size:19px;margin:0}header span{color:var(--mut)}
-.tabs button{margin-right:6px}.right{margin-left:auto;color:var(--mut)}
-main{display:grid;grid-template-columns:minmax(0,1.75fr) minmax(0,1fr);gap:14px;padding:14px 22px}
-@media(max-width:1100px){main{grid-template-columns:1fr}}
-.card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px}
-h3{margin:0 0 10px;font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--mut)}
-button{background:#0f2441;color:var(--txt);border:1px solid var(--line);border-radius:8px;padding:8px 12px;font-size:13px;cursor:pointer;margin:3px 4px 3px 0}
-button:hover{border-color:var(--amb)}button.on{background:var(--amb);color:#0b1d33;border-color:var(--amb);font-weight:700}
-svg{width:100%;height:auto;display:block}
-text{fill:#cfe0f1;font:12px system-ui}.small{font-size:10.5px;fill:#8fa9c2}.t{fill:#fff;font-weight:700}.part{font-size:10.5px;fill:#ffd9a0}
-.pipe{stroke:#3a5a86;stroke-width:9;fill:none;stroke-linecap:round;stroke-linejoin:round}
-.pipe.tp{stroke:#4a4f8f}
-.flow{stroke:var(--water);stroke-width:5;fill:none;stroke-dasharray:10 10;opacity:0;stroke-linecap:round;stroke-linejoin:round}
-.flow.tapf{stroke:var(--tap)}
-.flow.go{opacity:1;animation:dash .5s linear infinite}@keyframes dash{to{stroke-dashoffset:-20}}
-.drop{stroke:var(--water);stroke-width:3;stroke-linecap:round;opacity:0}
-.spray .drop{animation:fall .8s linear infinite}@keyframes fall{0%{transform:translateY(0);opacity:.95}100%{transform:translateY(230px);opacity:0}}
-.rainline{stroke:#9fd8ff;stroke-width:2;stroke-linecap:round;opacity:0}
-.raining .rainline{animation:rain .6s linear infinite}@keyframes rain{0%{transform:translateY(0);opacity:.8}100%{transform:translateY(40px);opacity:0}}
-.streak{stroke:#fff;stroke-width:3;stroke-linecap:round;opacity:0}
-.blow .streak{animation:blow .55s linear infinite}@keyframes blow{0%{transform:translateX(0);opacity:.8}100%{transform:translateX(-520px);opacity:0}}
-.fan{transform-box:fill-box;transform-origin:center}.spinning .fan{animation:spin .35s linear infinite}@keyframes spin{to{transform:rotate(360deg)}}
-.wire{stroke:#546e8f;stroke-width:2;fill:none}.wire.act{stroke:var(--amb);stroke-width:3;stroke-dasharray:6 5;animation:dash .5s linear infinite}
-.ping{stroke:#ffd166;stroke-width:2;fill:none;opacity:0}.pinging .ping{animation:ping 1s linear infinite}@keyframes ping{0%{opacity:.9;transform:translateY(0)}100%{opacity:0;transform:translateY(40px)}}
-.asleep{opacity:.28;transition:opacity .6s}.awake{transition:opacity .6s}
-.zzz{font-size:22px;fill:#9bb4ff;font-weight:700;opacity:0}.sleepy .zzz{animation:zz 2.2s ease-in-out infinite}@keyframes zz{0%{opacity:0;transform:translateY(6px)}50%{opacity:1}100%{opacity:0;transform:translateY(-14px)}}
-.code{font:12px/1.55 ui-monospace,Menlo,monospace;background:#0a1626;border-radius:8px;padding:10px;overflow:auto}
-.code div{padding:1px 8px;border-radius:4px;white-space:pre}.code div.hl{background:#2b4a1f;color:#d7ffc7}.code .cm{color:#6f8db1}
-.fsm{display:flex;align-items:center;gap:8px;margin:10px 0 6px;flex-wrap:wrap}.st{padding:7px 14px;border-radius:8px;background:#0f2441;border:2px solid var(--line);font-weight:700}
-.st.cur{background:var(--amb);color:#0b1d33;border-color:var(--amb)}.st.cur.w{background:var(--water);border-color:var(--water)}.st.cur.tp{background:var(--tap);border-color:var(--tap);color:#fff}.st.cur.sl{background:#4b5dbd;border-color:#4b5dbd;color:#fff}
-.prog{height:10px;background:#0f2441;border-radius:5px;overflow:hidden}.prog i{display:block;height:100%;background:var(--water);width:0}
-table{width:100%;border-collapse:collapse;font-size:12px}td,th{padding:3px 6px;border-bottom:1px solid #1a3558;text-align:left}th{color:var(--mut);font-weight:600}
-pre{white-space:pre-wrap;font-size:12px;margin:0;max-height:160px;overflow:auto}
-.grp{margin:8px 0 2px;color:var(--mut);font-size:11px;text-transform:uppercase;letter-spacing:.06em}
-.dot{display:inline-block;width:10px;height:10px;border-radius:50%;background:#555;margin-right:6px}.dot.on{background:var(--on)}
-.big{display:flex;gap:10px;flex-wrap:wrap}.kpi{background:#0f2441;border-radius:10px;padding:10px 14px;min-width:110px}.kpi b{display:block;font-size:20px}.kpi span{color:var(--mut);font-size:11px}
-.bar2{height:12px;border-radius:6px;background:#0f2441;margin:4px 0 2px;overflow:hidden}.bar2 i{display:block;height:100%}
-</style></head><body>
-<header><h1>Laptop A &middot; virtual panels + ESP32s</h1><span id="clock"></span><div class="tabs" id="tabs"></div><div class="right"><span class="dot" id="ldot"></span><span id="link">connecting...</span></div></header>
-<main>
- <section class="card"><h3>The machine (live) &middot; <span id="selname"></span></h3>
- <svg viewBox="0 0 1240 860" id="svg">
-  <!-- ===== sky, roof gutter (rain inlet), tap (second inlet) ===== -->
-  <g id="sky"><circle id="sun" cx="60" cy="52" r="24" fill="#ffd166"/><path id="moon" d="M70 30 a24 24 0 1 0 0 44 a19 19 0 0 1 0 -44z" fill="#cfd8ff"/></g>
-  <text x="100" y="46" class="small" id="skyt">sun</text>
-  <g id="rainfx"></g>
-  <rect x="20" y="124" width="100" height="9" rx="3" fill="#6b7f99"/><text x="20" y="117" class="small">roof gutter (rain inlet)</text>
-  <path class="pipe" d="M110 128 V250"/><path id="flowRain" class="flow" d="M110 128 V250"/>
-  <text x="300" y="116" class="t">Tap water</text>
-  <path d="M284 128 h30 v-8 h14 v22 h-14 v-8 h-30 z" fill="#8fa9c2"/>
-  <path class="pipe tp" d="M290 150 H205 V250"/><path id="flowTap" class="flow tapf" d="M290 150 H205 V250"/>
-  <g id="tapvalve"><circle cx="205" cy="200" r="19" fill="#16283c" stroke="#8fa9c2" stroke-width="3" id="tapC"/><path d="M193 190 L217 210 M217 190 L193 210" stroke="#8fa9c2" stroke-width="4" id="tapX"/></g>
-  <text x="230" y="196" class="t">K2 tap inlet valve</text><text x="230" y="210" class="part">12 V NC solenoid, 1/2 in</text><text id="tapt" x="230" y="224" class="small">closed</text>
-  <!-- ===== tank ===== -->
-  <rect x="70" y="250" width="170" height="210" rx="10" fill="#0a1626" stroke="#3a5a86" stroke-width="3"/>
-  <rect id="water" x="74" y="456" width="162" height="0" fill="#2a8fc9" opacity=".85"/>
-  <g id="tankping"><rect x="128" y="232" width="52" height="18" rx="3" fill="#16283c" stroke="#8fa9c2"/><line class="ping" x1="140" x2="140" y1="252" y2="262"/><line class="ping" x1="154" x2="154" y1="252" y2="262" style="animation-delay:.2s"/><line class="ping" x1="168" x2="168" y1="252" y2="262" style="animation-delay:.4s"/></g>
-  <text x="154" y="226" text-anchor="middle" class="part">JSN-SR04T-2.0</text>
-  <circle id="fHigh" cx="228" cy="268" r="6" fill="#444" stroke="#fff"/><circle id="fLow" cx="228" cy="444" r="6" fill="#444" stroke="#fff"/>
-  <text x="220" y="286" text-anchor="end" class="small">float hi</text><text x="220" y="437" text-anchor="end" class="small">float lo</text>
-  <text x="155" y="372" text-anchor="middle" class="t" id="tankpct" style="font-size:22px">-</text><text x="155" y="390" text-anchor="middle" class="small" id="tanklit">-</text>
-  <text x="155" y="480" text-anchor="middle" class="small">20 L tank: rain first, tap as back-up</text>
-  <text id="holdt" x="75" y="498" class="small" style="fill:#ffd166"></text>
-  <!-- ===== outlet, spray valve, spray pipe ===== -->
-  <path class="pipe" d="M240 440 H300"/><path class="pipe" d="M345 440 H375 V165 H945"/>
-  <path id="flowS1" class="flow" d="M240 440 H300"/><path id="flowS2" class="flow" d="M345 440 H375 V165 H945"/>
-  <g id="spvalve"><circle cx="322" cy="440" r="20" fill="#16283c" stroke="#8fa9c2" stroke-width="3" id="spC"/><path d="M309 430 L335 450 M335 430 L309 450" stroke="#8fa9c2" stroke-width="4" id="spX"/></g>
-  <text x="322" y="476" text-anchor="middle" class="t">K1 spray valve</text><text x="322" y="490" text-anchor="middle" class="part">12 V NC solenoid</text><text id="spt" x="322" y="504" text-anchor="middle" class="small">closed</text>
-  <!-- ===== panel ===== -->
-  <rect x="400" y="190" width="540" height="240" rx="8" fill="#0a1626" stroke="#aebfd2" stroke-width="6"/>
-  <g id="cells"></g>
-  <rect id="shadow" x="410" y="200" width="0" height="220" fill="#000" opacity="0"/>
-  <g id="spray" class="spray"></g><g id="air" class="blow"></g><g id="nozzles"></g>
-  <g id="cloudicon" opacity="0"><ellipse cx="0" cy="0" rx="70" ry="22" fill="#aab8c8"/><circle cx="-30" cy="-14" r="24" fill="#aab8c8"/><circle cx="14" cy="-22" r="30" fill="#aab8c8"/></g>
-  <text x="660" y="150" text-anchor="middle" class="small">spray pipe along the top edge of the panel</text>
-  <g id="ldrs"></g>
-  <!-- rain sensor, blower -->
-  <rect x="965" y="195" width="42" height="56" rx="4" fill="#16283c" stroke="#3a5a86"/><path d="M980 215 q6 -12 12 0 q-6 12 -12 0z" fill="#4fc3f7" id="wetdrop" opacity=".3"/>
-  <text x="986" y="265" text-anchor="middle" class="part">FC-37</text><text x="986" y="277" text-anchor="middle" class="small">rain sensor</text>
-  <g id="blower"><rect x="1040" y="300" width="130" height="120" rx="14" fill="#16283c" stroke="#3a5a86" stroke-width="3"/>
-   <g class="fan"><circle cx="1105" cy="360" r="34" fill="none" stroke="#8fa9c2" stroke-width="2"/>
-    <path d="M1105 360 L1105 330 A30 30 0 0 1 1131 345 Z M1105 360 L1131 375 A30 30 0 0 1 1105 390 Z M1105 360 L1079 375 A30 30 0 0 1 1079 345 Z" fill="#8fa9c2"/></g></g>
-  <path class="pipe" d="M1040 360 H940"/><text x="1105" y="438" text-anchor="middle" class="t">K3 air blower</text><text x="1105" y="452" text-anchor="middle" class="part">12 V 5015 centrifugal</text><text id="blowt" x="1105" y="466" text-anchor="middle" class="small">off</text>
-  <!-- ===== sensor chain (dimmed while asleep) ===== -->
-  <g id="chain">
-   <rect x="410" y="490" width="175" height="54" rx="8" fill="#16283c" stroke="#3a5a86" stroke-width="2"/><text x="497" y="509" text-anchor="middle" class="t">CD74HC4051E #1</text><text x="497" y="523" text-anchor="middle" class="part">8x LM35DZ on the back sheet</text><text x="497" y="536" text-anchor="middle" class="small">S0-S2 from GPIO25/26/27</text>
-   <rect x="603" y="490" width="175" height="54" rx="8" fill="#16283c" stroke="#3a5a86" stroke-width="2"/><text x="690" y="509" text-anchor="middle" class="t">CD74HC4051E #2</text><text x="690" y="523" text-anchor="middle" class="part">4x GL5528 LDR at the corners</text><text x="690" y="536" text-anchor="middle" class="small">same select lines</text>
-   <rect x="796" y="490" width="140" height="54" rx="8" fill="#16283c" stroke="#3a5a86" stroke-width="2"/><text x="866" y="509" text-anchor="middle" class="t">Divider 56k/10k</text><text x="866" y="523" text-anchor="middle" class="part">panel voltage</text><text id="vtxt" x="866" y="536" text-anchor="middle" class="small">-</text>
-   <rect x="952" y="490" width="140" height="54" rx="8" fill="#16283c" stroke="#3a5a86" stroke-width="2"/><text x="1022" y="509" text-anchor="middle" class="t">ACS712-20A</text><text x="1022" y="523" text-anchor="middle" class="part">panel current</text><text id="itxt" x="1022" y="536" text-anchor="middle" class="small">-</text>
-   <path class="wire" d="M497 430 V490"/><path class="wire" d="M866 430 V490"/>
-   <path class="wire" d="M497 544 V590"/><path class="wire" d="M690 544 V590"/><path class="wire" d="M866 544 V566 H740 V590"/><path class="wire" d="M1022 544 V574 H756 V590"/>
-   <rect x="470" y="590" width="300" height="58" rx="8" fill="#0f3a2f" stroke="#2ecc71" stroke-width="2"/><text x="620" y="610" text-anchor="middle" class="t">ADS1115 &middot; 16-bit I2C ADC &middot; 0x48</text><text x="620" y="626" text-anchor="middle" class="part">A0 temps  A1 light  A2 volts  A3 amps</text><text x="620" y="640" text-anchor="middle" class="small">860 samples/s, 4 averaged</text>
-   <rect x="800" y="590" width="190" height="58" rx="8" fill="#0f3a2f" stroke="#2ecc71" stroke-width="2"/><text x="895" y="610" text-anchor="middle" class="t">INA219 &middot; I2C &middot; 0x40</text><text id="inat" x="895" y="626" text-anchor="middle" class="part">node power: -</text><text x="895" y="640" text-anchor="middle" class="small">on the 12 V battery rail</text>
-   <path class="wire" id="i2c" d="M560 648 V680 M895 648 V666 H540 V680"/>
-   <text x="590" y="662" class="small">I2C bus: SDA GPIO21, SCL GPIO22</text>
-  </g>
-  <g id="ldrwires"></g>
-  <!-- ===== ESP32 ===== -->
-  <g id="espbox"><rect x="410" y="680" width="390" height="160" rx="10" fill="#0f2f3f" stroke="#4fc3f7" stroke-width="3" id="esprect"/>
-   <text x="605" y="738" text-anchor="middle" class="t" style="font-size:15px">ESP32 &middot; DFRobot FireBeetle (DFR0478)</text>
-   <text id="espstate" x="605" y="758" text-anchor="middle" class="small">-</text>
-   <text id="zzz1" class="zzz" x="560" y="800">z</text><text id="zzz2" class="zzz" x="590" y="790" style="animation-delay:.7s">z</text><text id="zzz3" class="zzz" x="620" y="780" style="animation-delay:1.4s">Z</text>
-   <g id="pins"></g>
-   <g id="wifi" opacity=".25"><path d="M425 820 q18 -14 36 0 M431 828 q12 -9 24 0" stroke="#fff" stroke-width="3" fill="none"/><circle cx="443" cy="836" r="2.5" fill="#fff"/></g>
-   <text x="470" y="834" class="small" id="wifit">radio</text>
-  </g>
-  <!-- ===== sensor-rail load switch + battery ===== -->
-  <rect x="40" y="560" width="300" height="70" rx="8" fill="#16283c" stroke="#3a5a86" stroke-width="2" id="railbox"/><text x="190" y="580" text-anchor="middle" class="t">TPS22918 load switch</text><text x="190" y="596" text-anchor="middle" class="part">5 V sensor rail: LM35s, ACS712, JSN-SR04T, FC-37, relays</text><text id="railt" x="190" y="616" text-anchor="middle" class="small">-</text>
-  <rect x="40" y="660" width="300" height="70" rx="8" fill="#16283c" stroke="#3a5a86" stroke-width="2"/><text x="190" y="680" text-anchor="middle" class="t">12 V battery + charge controller</text><text x="190" y="696" text-anchor="middle" class="part">MP1584EN buck 12 V to 5 V (low quiescent current)</text><text x="190" y="714" text-anchor="middle" class="small">the node runs from the same solar system it looks after</text>
-  <path class="wire" d="M340 595 H380 V700 H410" style="stroke-dasharray:4 4"/>
-  <!-- ===== relay module ===== -->
-  <rect x="850" y="680" width="360" height="160" rx="10" fill="#16283c" stroke="#3a5a86" stroke-width="2"/><text x="1030" y="702" text-anchor="middle" class="t">4-channel relay module &middot; SRD-05VDC</text><text x="1030" y="716" text-anchor="middle" class="part">opto-isolated, active LOW, logic on the switched rail</text>
-  <g id="relays"></g>
-  <path class="wire" id="wr1" d="M800 745 H850"/><path class="wire" id="wr2" d="M800 775 H850"/><path class="wire" id="wr3" d="M800 805 H850"/>
- </svg></section>
-
- <div style="display:grid;gap:14px;align-content:start">
-  <section class="card"><h3>Day-only power &middot; <span id="pmode"></span></h3>
-   <div class="big"><div class="kpi"><b id="kmw">-</b><span>node draw now</span></div><div class="kpi"><b id="kwh">-</b><span>node energy today</span></div><div class="kpi"><b id="kao">-</b><span>if it never slept</span></div><div class="kpi"><b id="krec">-</b><span>cleaning recovered</span></div></div>
-   <div class="small" style="margin:8px 0 4px">Today so far, all panels. Recovered is simulator ground truth (a real install estimates it from power before and after each wash).</div>
-   <div class="bar2"><i id="bnode" style="background:#4b5dbd;width:0"></i></div><div class="small">node used</div>
-   <div class="bar2" style="margin-top:6px"><i id="brec" style="background:#2ecc71;width:0"></i></div><div class="small">cleaning recovered</div></section>
-  <section class="card"><h3>ESP32 firmware logic &middot; <span id="fwp"></span></h3>
-   <div class="code" id="code"></div>
-   <div class="fsm"><div class="st" id="s0">IDLE</div>&rarr;<div class="st" id="s1">WATER</div>&rarr;<div class="st" id="s2">AIR</div>&rarr;<span class="small">back to IDLE</span></div>
-   <div class="prog"><i id="prog"></i></div><div class="small" id="progt" style="margin-top:4px"></div>
-   <div class="fsm"><div class="st" id="a0">ACTIVE (day)</div><div class="st" id="a1">DEEP SLEEP</div><div class="st" id="a2">TAP REFILL</div></div></section>
-  <section class="card"><h3>What the ESP32 reads right now (through the ADS1115)</h3><table id="adc"></table></section>
- </div>
-
- <section class="card"><h3>Cause trouble &middot; panel <span id="selname2"></span></h3>
-  <div class="grp">Panel</div><div id="psel"></div>
-  <div class="grp">On that panel</div>
-  <button data-c="cloud">Passing cloud</button><button data-c="dirty">Make dirty now</button><button data-c="bird">Bird dropping</button><button data-c="shade" data-f="shade">Shade</button><button data-c="hotspot" data-f="hotspot">Hotspot</button><button data-c="crack" data-f="crack">Cracked cell</button><button data-c="drain">Drain the tank</button><button data-c="repair">Repair faults</button>
-  <div class="grp">Whole site</div>
-  <button data-c="storm" data-g="storm">Dust storm (1 h)</button><button data-c="rain_forecast" data-g="forecast_rain">Rain forecast</button><button data-c="rain_now">Start rain now</button><button data-c="timer" data-g="timer">2 h backup timer</button>
-  <div class="grp">Skip ahead (the day/night logic runs the whole way)</div>
-  <button data-c="skip" data-v="17.5">to dusk (17:30)</button><button data-c="skip" data-v="20">to night (20:00)</button><button data-c="skip" data-v="7.3">to morning (07:20)</button><button data-c="skip" data-v="12">to noon</button>
-  <div class="grp">Time scale: <span id="spv"></span></div>
-  <button data-c="speed" data-v="0">Pause</button><button data-c="speed" data-v="1">1x</button><button data-c="speed" data-v="10">10x</button><button data-c="speed" data-v="60">60x</button><button data-c="speed" data-v="120">120x</button><button data-c="speed" data-v="300">300x</button><button data-c="speed" data-v="1200">1200x</button></section>
- <section class="card"><h3>World and node log</h3><pre id="world"></pre><pre id="log" style="margin-top:8px;color:#cfe0f1"></pre></section>
-</main>
-<script>
-const $=id=>document.getElementById(id),NS='http://www.w3.org/2000/svg';
-let S=null,sel=0;
-const mk=(t,a,p)=>{const e=document.createElementNS(NS,t);for(const k in a)e.setAttribute(k,a[k]);(p||$('svg')).appendChild(e);return e};
-const STOPS=[[0,[20,30,110]],[.2,[30,130,200]],[.4,[40,190,170]],[.6,[250,225,60]],[.8,[250,140,30]],[.92,[225,40,30]],[1,[255,235,220]]];
-const heat=f=>{f=Math.min(1,Math.max(0,f));for(let k=1;k<STOPS.length;k++)if(f<=STOPS[k][0]){const[a,ca]=STOPS[k-1],[b,cb]=STOPS[k],u=(f-a)/(b-a);return'rgb('+ca.map((c,j)=>Math.round(c+(cb[j]-c)*u))+')'}};
-// ---- static drawing parts built in JS
-const cells=[],dust=[],bird=[],ctext=[];
-for(let i=0;i<8;i++){const r=Math.floor(i/4),c=i%4,x=410+c*132,y=200+r*112;
- cells.push(mk('rect',{x,y,width:128,height:108,rx:4,fill:'#444'},$('cells')));
- dust.push(mk('rect',{x,y,width:128,height:108,rx:4,fill:'#8a6a3a',opacity:0},$('cells')));
- bird.push(mk('ellipse',{cx:x+64,cy:y+54,rx:26,ry:18,fill:'#e9e6dc',opacity:0},$('cells')));
- ctext.push(mk('text',{x:x+64,y:y+62,'text-anchor':'middle',class:'t',style:'font-size:16px'},$('cells')))}
-for(let c=0;c<4;c++){const nx=470+c*130;mk('rect',{x:nx-7,y:165,width:14,height:16,fill:'#8fa9c2'},$('nozzles'));
- for(let k=0;k<5;k++){const d=mk('line',{x1:nx+(k-2)*8,x2:nx+(k-2)*8,y1:183,y2:197},$('spray'));d.setAttribute('class','drop');d.style.animationDelay=(k*0.16+(c%2)*0.08)+'s'}}
-for(let k=0;k<9;k++){const y=205+k*24,l=mk('line',{x1:930,x2:880,y1:y,y2:y},$('air'));l.setAttribute('class','streak');l.style.animationDelay=(k*0.07)+'s'}
-for(let k=0;k<16;k++){const x=30+k*24,l=mk('line',{x1:x,x2:x-6,y1:70,y2:90},$('rainfx'));l.setAttribute('class','rainline');l.style.animationDelay=(k*0.09)+'s'}
-// four corner LDRs
-const LDRP=[[400,190],[940,190],[400,430],[940,430]],ldrDot=[],ldrTxt=[];
-LDRP.forEach(([x,y])=>mk('line',{x1:x,y1:y,x2:690,y2:490,stroke:'#546e8f','stroke-width':1,'stroke-dasharray':'3 4'},$('ldrwires')));
-LDRP.forEach(([x,y],k)=>{ldrDot.push(mk('circle',{cx:x,cy:y,r:10,fill:'#ffd166',stroke:'#fff','stroke-width':2},$('ldrs')));
- ldrTxt.push(mk('text',{x:x+(k%2?16:-16),y:y+(k<2?-14:26),'text-anchor':k%2?'start':'end',class:'t',style:'font-size:11px'},$('ldrs')))});
-// ESP32 pins
-const PINS=[['GPIO21','SDA',440,680,'t'],['GPIO22','SCL',478,680,'t'],['GPIO25','S0',520,680,'t'],['GPIO26','S1',558,680,'t'],['GPIO27','S2',596,680,'t'],['GPIO23','5V on',634,680,'t'],
- ['GPIO4','TRIG',672,680,'t'],['GPIO5','ECHO',710,680,'t'],['GPIO34','rain',748,680,'t'],['GPIO16','K1',800,745,'r'],['GPIO17','K2',800,775,'r'],['GPIO18','K3',800,805,'r']];
-const pinEl={};
-PINS.forEach(([g,n,x,y,s])=>{pinEl[g]=mk('circle',{cx:x,cy:y,r:6,fill:'#1d5470',stroke:'#4fc3f7','stroke-width':2},$('pins'));
- if(s==='t'){mk('text',{x,y:y+19,'text-anchor':'middle',class:'t',style:'font-size:10px'},$('pins')).textContent=n;mk('text',{x,y:y+30,'text-anchor':'middle',class:'small',style:'font-size:9px'},$('pins')).textContent=g.replace('GPIO','')}
- else mk('text',{x:x-11,y:y+4,'text-anchor':'end',class:'small'},$('pins')).textContent=n+' '+g});
-// relays
-const RL=[['K1','spray valve'],['K2','tap valve'],['K3','blower'],['K4','spare']],led=[];
-RL.forEach(([k,n],i)=>{const x=868+i*84;mk('rect',{x,y:728,width:76,height:96,rx:6,fill:'#0f2441',stroke:'#3a5a86'},$('relays'));
- mk('text',{x:x+38,y:748,'text-anchor':'middle',class:'t'},$('relays')).textContent=k;mk('text',{x:x+38,y:762,'text-anchor':'middle',class:'small'},$('relays')).textContent=n;
- led.push(mk('circle',{cx:x+38,cy:796,r:10,fill:'#333'},$('relays')))});
-// firmware listing
-const CODE=[['clean','  cleanLoop(); tapLoop();               // wash state machine + tap-water refill'],['poll','  if (every 1 s) pollCommand();        // GET /api/command (+ tap policy)'],['rep','  if (every REPORT_MS) publishReading(); // ADS1115 reads, INA219, POST'],['sleep','  if (dark or rain for 3 min) sleepNow(); // day-only: radio + sensors off'],['timer','  if (IDLE && 2 h passed) startClean();  // backup timer']];
-$('code').innerHTML='<div class="cm">void loop() {</div>'+CODE.map(c=>`<div id="c_${c[0]}">${c[1]}</div>`).join('')+'<div class="cm">}</div>';
-// controls
-const send=(cmd,extra)=>fetch('/do',{method:'POST',body:JSON.stringify({cmd,panel:sel,...extra})});
-document.querySelector('main').addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;
- if(b.dataset.p!==undefined){sel=+b.dataset.p;send('select');render()}else if(b.dataset.c)send(b.dataset.c,b.dataset.v!==undefined?{value:+b.dataset.v}:{})});
-async function tick(){try{S=await(await fetch('/state')).json();render()}catch(e){$('link').textContent='console lost: '+e.message}}
-const fmtmw=m=>m>=1000?(m/1000).toFixed(2)+' W':(m<10?m.toFixed(1):Math.round(m))+' mW';
-function render(){if(!S)return;const P=S.panels[sel],N=P.node,now=S.now,asleep=P.mode==='sleep';
- $('clock').textContent=S.clock+(S.raining?' · raining':'')+' · sun '+S.sun_wm2+' W/m2 · '+S.ambient_c+'°C air'+(S.skipping?' · skipping ahead...':'');
- $('ldot').className='dot'+(S.link?' on':'');$('link').textContent=S.link?'sending to '+S.api:'API not reachable: '+S.api;
- $('tabs').innerHTML=S.panels.map((p,i)=>`<button data-p="${i}" class="${i===sel?'on':''}">${p.id}${p.mode==='sleep'?' (asleep)':''}</button>`).join('');
- $('psel').innerHTML=$('tabs').innerHTML;$('selname').textContent=P.id;$('selname2').textContent=P.id;$('fwp').textContent='panel '+P.id;
- // sky
- const day=S.sun_wm2>0;$('sun').style.display=day?'':'none';$('moon').style.display=day?'none':'';
- $('skyt').textContent=S.raining?'raining':(day?'sun '+S.sun_wm2+' W/m2':'night');$('rainfx').setAttribute('class',S.raining?'raining':'');
- // cells and light
- const med=[...P.temps].sort((a,b)=>a-b)[4],lo=Math.min(Math.min(...P.temps),med-5),hi=Math.max(Math.max(...P.temps),med+7);
- P.temps.forEach((t,i)=>{cells[i].setAttribute('fill',heat((t-lo)/(hi-lo)*.8+.1));ctext[i].textContent=t.toFixed(0)+'°';dust[i].setAttribute('opacity',Math.min(.75,(P.soil[i]-P.stuck[i])*2.2));bird[i].setAttribute('opacity',Math.min(.95,P.stuck[i]*2.2))});
- const lc=N.last.corners||[0,0,0,0],lm=lc.reduce((a,b)=>a+b,0)/4,uneven=(Math.max(...lc)-Math.min(...lc))/Math.max(lm,1)>.25;
- lc.forEach((l,k)=>{ldrDot[k].setAttribute('fill',`hsl(45 100% ${18+Math.min(1,l/100000)*47}%)`);ldrDot[k].setAttribute('stroke',uneven?'#ff6b4a':'#fff');ldrTxt[k].textContent=Math.round(l/1000)+'k lux';ldrTxt[k].style.fill=uneven?'#ff9d85':''});
- if(P.cloud_x===null||P.cloud_x===undefined){$('shadow').setAttribute('opacity',0);$('cloudicon').setAttribute('opacity',0)}
- else{const a=Math.max(0,P.cloud_x-1.3),b=Math.min(1,P.cloud_x);$('shadow').setAttribute('x',410+a*520);$('shadow').setAttribute('width',Math.max(0,(b-a)*520));$('shadow').setAttribute('opacity',.42);$('cloudicon').setAttribute('transform',`translate(${410+(P.cloud_x-.65)*520},118)`);$('cloudicon').setAttribute('opacity',.9)}
- $('wetdrop').setAttribute('opacity',P.raining?1:.3);
- // actuators
- const sp=N.cs==='WATER'&&!asleep,bl=N.cs==='AIR'&&!asleep,tp=P.tap;
- $('spray').classList.toggle('spray',sp);$('spray').style.display=sp?'':'none';$('air').style.display=bl?'':'none';
- $('blower').classList.toggle('spinning',bl);$('blowt').textContent=bl?'RUNNING':'off';$('blowt').style.fill=bl?'#2ecc71':'';
- const valve=(c,x,on)=>{$(c).setAttribute('fill',on?'#1d6b3c':'#16283c');$(c).setAttribute('stroke',on?'#2ecc71':'#8fa9c2');$(x).style.display=on?'none':''};
- valve('spC','spX',sp);valve('tapC','tapX',tp);$('spt').textContent=sp?'OPEN':'closed';$('spt').style.fill=sp?'#2ecc71':'';
- $('tapt').textContent=tp?'OPEN: refilling from the tap':(P.tap_hold&&N.tank_sensor<25?'closed (rain coming: holding)':'closed');$('tapt').style.fill=tp?'#9aa6ff':'';
- ['flowS1','flowS2'].forEach(id=>$(id).classList.toggle('go',sp));$('flowTap').classList.toggle('go',tp);$('flowRain').classList.toggle('go',P.raining&&P.tank<100);
- $('holdt').textContent=P.tap_hold?'API: rain expected, holding tap water':'';
- // tank
- const h=Math.round(2.0*P.tank);$('water').setAttribute('height',h);$('water').setAttribute('y',456-h);
- $('tankpct').textContent=P.tank+'%';$('tanklit').textContent=(P.tank*S.cfg.tank_l/100).toFixed(1)+' L of '+S.cfg.tank_l+' L (sensor: '+N.tank_sensor+'%)';
- $('fHigh').setAttribute('fill',P.tank>=95?'#2ecc71':'#444');$('fLow').setAttribute('fill',P.tank>6?'#2ecc71':'#e63946');
- $('tankping').setAttribute('class',(!asleep&&Math.floor(now)%2===0)?'pinging':'');
- // relays and pins
- [sp,tp,bl,false].forEach((on,i)=>led[i].setAttribute('fill',on?'#2ecc71':'#333'));
- [['wr1',sp],['wr2',tp],['wr3',bl]].forEach(([id,on])=>$(id).classList.toggle('act',on));
- pinEl.GPIO16.setAttribute('fill',sp?'#2ecc71':'#1d5470');pinEl.GPIO17.setAttribute('fill',tp?'#2ecc71':'#1d5470');pinEl.GPIO18.setAttribute('fill',bl?'#2ecc71':'#1d5470');
- const rec=!asleep&&now-S.activity.report<.8;['GPIO21','GPIO22','GPIO25','GPIO26','GPIO27'].forEach(g=>pinEl[g].setAttribute('fill',rec?'#ffb703':'#1d5470'));
- const pg=!asleep&&Math.floor(now)%2===0;
- pinEl.GPIO23.setAttribute('fill',asleep?'#555':'#2ecc71');pinEl.GPIO4.setAttribute('fill',pg?'#ffb703':'#1d5470');pinEl.GPIO5.setAttribute('fill',pg?'#ffb703':'#1d5470');pinEl.GPIO34.setAttribute('fill',P.raining&&!asleep?'#4fc3f7':'#1d5470');
- $('i2c').classList.toggle('act',rec);
- // sleeping: dim everything that is switched off
- ['chain','ldrs','ldrwires','relays'].forEach(id=>$(id).setAttribute('class',asleep?'asleep':'awake'));
- $('espbox').setAttribute('class',asleep?'sleepy':'');$('esprect').setAttribute('stroke',asleep?'#4b5dbd':'#4fc3f7');
- $('wifi').setAttribute('opacity',asleep?0.08:(rec||now-S.activity.poll<.4?1:.35));$('wifit').textContent=asleep?'radio off':(rec?'POST reading':(now-S.activity.poll<.4?'GET command':'radio on'));
- $('railt').textContent=asleep?'OFF (GPIO23 low, held through deep sleep)':'ON (GPIO23 high)';$('railt').style.fill=asleep?'#9bb4ff':'#7be0a0';
- $('espstate').textContent=asleep?`DEEP SLEEP (${P.sleep_reason}): wakes in ${Math.round(P.wake_in_s/60)} min to look at the sun, ${fmtmw(N.mw)}`:`state ${N.cs}   spray ${sp?'ON':'off'}   tap ${tp?'ON':'off'}   blower ${bl?'ON':'off'}   ${fmtmw(N.mw)}`;
- $('vtxt').textContent=asleep?'off':N.last.v+' V';$('itxt').textContent=asleep?'off':N.last.a+' A';$('inat').textContent='node power: '+fmtmw(N.mw);
- // code highlight
- $('c_clean').className=(!asleep&&(N.cs!=='IDLE'||tp))?'hl':'';$('c_poll').className=(!asleep&&now-S.activity.poll<.5)?'hl':'';$('c_rep').className=rec?'hl':'';$('c_sleep').className=asleep?'hl':'';$('c_timer').className=(!asleep&&N.timer_on&&N.timer_in_s<=0&&N.cs==='IDLE')?'hl':'';
- // state machines
- ['IDLE','WATER','AIR'].forEach((n,i)=>{$('s'+i).className='st'+(!asleep&&N.cs===n?' cur'+(n==='WATER'?' w':''):'')});
- $('a0').className='st'+(!asleep?' cur':'');$('a1').className='st'+(asleep?' cur sl':'');$('a2').className='st'+(tp?' cur tp':'');
- const pct=N.cs==='IDLE'?0:Math.min(100,N.elapsed_ms/N.total_ms*100);$('prog').style.width=pct+'%';
- $('progt').textContent=asleep?'Asleep: nothing runs. The ESP32 wakes on its timer, looks at the four light sensors and the rain sensor, and goes back to sleep unless it is day and dry.':(N.cs==='IDLE'?(N.timer_on?'Idle. Backup timer fires in '+Math.max(0,Math.round(N.timer_in_s/60))+' simulated minutes.':'Idle. Waiting for a command from the API.'):(N.cs==='WATER'?'Spray valve open: ':'Blower on: ')+Math.round(N.elapsed_ms/100)/10+' s of '+N.total_ms/1000+' s');
- // power card
- $('pmode').textContent=asleep?'deep sleep ('+P.sleep_reason+')':'awake (daylight, dry)';
- const T=S.today;$('kmw').textContent=fmtmw(N.mw);$('kwh').textContent=T.node_wh.toFixed(2)+' Wh';$('kao').textContent=T.always_on_wh.toFixed(2)+' Wh';$('krec').textContent=T.recovered_wh.toFixed(1)+' Wh';
- const mx=Math.max(T.node_wh,T.always_on_wh,T.recovered_wh,1);$('bnode').style.width=(T.node_wh/mx*100)+'%';$('brec').style.width=(T.recovered_wh/mx*100)+'%';
- // adc table
- const C=S.cfg,a=N.adc;
- $('adc').innerHTML='<tr><th>Input</th><th>counts</th><th>mV</th><th>firmware turns it into</th></tr>'+
-  `<tr><td>A2 panel voltage</td><td>${a.volt[0]}</td><td>${a.volt[1]}</td><td>${(a.volt[1]/1000).toFixed(3)} V x ${C.volt_div} = ${N.last.v} V</td></tr>`+
-  `<tr><td>A3 ACS712 current</td><td>${a.curr[0]}</td><td>${a.curr[1]}</td><td>(${(a.curr[1]/1000).toFixed(3)} - ${C.zero}) / ${C.vpa} = ${N.last.a} A</td></tr>`+
-  a.ldr.map((m,k)=>`<tr><td>A1 LDR ${['top-left','top-right','bottom-left','bottom-right'][k]} (mux ch ${k})</td><td>${m[0]}</td><td>${m[1]}</td><td>${(N.last.corners||[])[k]} lux</td></tr>`).join('')+
-  a.temp.map((m,i)=>`<tr><td>A0 LM35DZ ${i} (R${Math.floor(i/4)+1} C${i%4+1})</td><td>${m[0]}</td><td>${m[1]}</td><td>${(m[1]/C.mvc).toFixed(1)} °C</td></tr>`).join('');
- $('world').textContent=`Dust on ${P.id}: ${P.soil_pct}%   Tank ${P.tank}% (${N.tank_sensor}% by sensor)   Tap water used so far ${(N.tap_s*C.tap_l_s).toFixed(1)} L   Spray used ${(N.spray_s*C.spray_l_s).toFixed(1)} L   Sleeps taken: ${N.sleeps}\nStorm: ${S.storm}   Rain forecast: ${S.forecast_rain}   Raining: ${S.raining}   Today, all panels: tap ${S.today.tap_l.toFixed(1)} L, rain in ${S.today.rain_l.toFixed(1)} L, spray out ${S.today.spray_l.toFixed(1)} L`;
- $('log').textContent=S.events.join('\n');
- $('spv').textContent=S.speed===0?'paused':`${S.speed}x. 1 real second = ${S.speed>=60?(S.speed/60).toFixed(1)+' sim minutes':S.speed+' sim seconds'}; a day = ${(86400/S.speed/60).toFixed(1)} real minutes`;
- document.querySelectorAll('[data-f]').forEach(x=>x.classList.toggle('on',!!P.faults[x.dataset.f]));
- document.querySelectorAll('[data-g]').forEach(x=>x.classList.toggle('on',!!S[x.dataset.g]));
- document.querySelectorAll('[data-c="speed"]').forEach(x=>x.classList.toggle('on',+x.dataset.v===S.speed));
+.tabs{display:flex;gap:8px;flex-wrap:wrap}
+.lay{display:grid;grid-template-columns:minmax(0,1fr) 340px;gap:clamp(20px,3vw,44px);align-items:start}
+.rail{position:sticky;top:76px;max-height:calc(100vh - 92px);overflow:auto;padding:24px 6px 32px 0}
+#ctl-btn,#ctl-close{display:none}
+/* below 1480 px the diagrams get the whole width and the controls slide in from the right */
+@media(max-width:1479px){
+  .lay{grid-template-columns:minmax(0,1fr)}
+  .rail{position:fixed;top:0;right:0;bottom:0;max-height:none;width:min(380px,100vw);padding:16px 20px 32px;background:var(--paper);border-left:1.5px solid var(--ink);transform:translateX(105%);transition:transform .2s;z-index:50}
+  .rail.open{transform:none}
+  #ctl-btn,#ctl-close{display:inline-flex}
+  #ctl-close{margin-bottom:12px}
 }
-setInterval(tick,250);tick();
-</script></body></html>
+.say{font-size:clamp(18px,1.9vw,22px);font-weight:700;line-height:1.3;margin:6px 0 16px;min-height:2.6em;max-width:60ch}
+.cap{color:var(--ink2);font-size:14.5px;margin-top:10px;max-width:84ch}
+.dwrap{overflow-x:auto;margin-inline:-2px;padding-inline:2px}
+.d{display:block;width:100%;max-width:1180px;height:auto;min-width:860px}
+.d text{font-family:var(--sans);fill:var(--ink)}
+.d .t{font-size:15px;font-weight:700}
+.d .s{font-size:13.5px;fill:var(--ink2)}
+.d .v{font-size:14px;font-weight:700;font-variant-numeric:tabular-nums}
+.d .big{font-size:28px;font-weight:800;font-variant-numeric:tabular-nums}
+.d .cellt{font-size:16px;font-weight:700;font-variant-numeric:tabular-nums}
+.d .pn{font-size:13px;font-weight:700}.d .pg{font-size:13px;fill:var(--ink2);font-variant-numeric:tabular-nums}
+.d .bx{fill:var(--paper);stroke:var(--ink);stroke-width:2}
+.d .bx.soft{fill:var(--ground);stroke:var(--rule2)}
+.d .pipe{stroke:var(--rule);stroke-width:9;fill:none;stroke-linecap:round;stroke-linejoin:round}
+.d .flow{stroke:var(--water);stroke-width:4;fill:none;stroke-dasharray:9 9;stroke-linecap:round;stroke-linejoin:round;opacity:0}
+.d .flow.tapf{stroke:var(--ink2)}
+.d .flow.go{opacity:1;animation:dash .5s linear infinite}
+@keyframes dash{to{stroke-dashoffset:-18}}
+.d .vlv{fill:var(--paper);stroke:var(--ink);stroke-width:2.5}
+.d .vlv.on{fill:var(--ok);stroke:var(--ok)}
+.d .vx{stroke:var(--ink);stroke-width:3;stroke-linecap:round}
+.d .wire{stroke:var(--rule2);stroke-width:2.5;fill:none}
+.d .wire.act{stroke:var(--ink);stroke-dasharray:6 5;animation:dash .5s linear infinite}
+.d .chip rect{fill:var(--ground);stroke:var(--rule2);stroke-width:1.5}
+.d .chip.amber rect{fill:var(--sun);stroke:var(--ink)}
+.d .chip.go rect{fill:var(--ok);stroke:var(--ok)}
+.d .chip.go text{fill:#fff}
+.d .chip.wet rect{fill:var(--water);stroke:var(--water)}
+.d .chip.wet text{fill:#fff}
+.d .chip.off rect{fill:var(--paper);stroke:var(--rule)}
+.d .drop{stroke:var(--water);stroke-width:3;stroke-linecap:round;opacity:0}
+.d .spray .drop{animation:fall .8s linear infinite}
+@keyframes fall{0%{transform:translateY(0);opacity:.95}100%{transform:translateY(170px);opacity:0}}
+.d .rainline{stroke:var(--water);stroke-width:2;stroke-linecap:round;opacity:0}
+.d .raining .rainline{animation:rain .6s linear infinite}
+@keyframes rain{0%{transform:translateY(0);opacity:.9}100%{transform:translateY(28px);opacity:0}}
+.d .streak{stroke:#fff;stroke-width:3;stroke-linecap:round;opacity:0}
+.d .blow .streak{animation:blow .55s linear infinite}
+@keyframes blow{0%{transform:translateX(0);opacity:.9}100%{transform:translateX(-440px);opacity:0}}
+.d .fan{transform-box:fill-box;transform-origin:center}
+.d .spinning .fan{animation:spin .35s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.d .ping{stroke:var(--ink);stroke-width:2;opacity:0}
+.d .pinging .ping{animation:ping 1s linear infinite}
+@keyframes ping{0%{opacity:.9;transform:translateY(0)}100%{opacity:0;transform:translateY(34px)}}
+.d .dim{opacity:.28;transition:opacity .5s}
+.d .lit{transition:opacity .5s}
+.d .zzz{font-size:22px;font-weight:800;fill:var(--asleep);opacity:0}
+.d .sleepy .zzz{animation:zz 2.2s ease-in-out infinite}
+@keyframes zz{0%{opacity:0;transform:translateY(6px)}50%{opacity:1}100%{opacity:0;transform:translateY(-12px)}}
+.code{font:13.5px/1.7 var(--mono);background:var(--ground);border-radius:var(--r);padding:12px 6px;overflow-x:auto}
+.code div{padding:0 10px;border-left:4px solid transparent;white-space:pre}
+.code div.hl{background:var(--sun);color:var(--on-sun);border-left-color:var(--ink);font-weight:600}
+.code .cm{color:var(--ink3)}
+.fsm{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:14px 0 0}
+.fsm .st{padding:6px 12px;border:1.5px solid var(--rule2);border-radius:var(--r);font-weight:700;font-size:14px;color:var(--ink2)}
+.fsm .st.cur{background:var(--ink);border-color:var(--ink);color:var(--paper)}
+.fsm .sep{color:var(--ink3)}
+.bar{height:12px;background:var(--ground);border:1px solid var(--rule2)}
+.bar i{display:block;height:100%;width:0;transition:width .4s}
+.kp{display:grid;grid-template-columns:1fr 1fr;gap:14px 20px;margin:14px 0}
+.kp dt{font-size:14px;color:var(--ink2)}
+.kp dd{font-size:26px;font-weight:800;letter-spacing:-.01em;font-variant-numeric:tabular-nums}
+.mb{display:grid;grid-template-columns:7.5em 1fr;gap:10px;align-items:center;font-size:14px;color:var(--ink2);margin-top:8px}
+.prog{height:10px;background:var(--ground);border:1px solid var(--rule2);margin-top:12px}
+.prog i{display:block;height:100%;width:0;background:var(--water)}
+.rail h2{font-size:18px;font-weight:800;margin:0 0 6px}
+.rail .blk{padding-bottom:22px;margin-bottom:22px;border-bottom:1px solid var(--rule)}
+.rail .log li{grid-template-columns:1fr;gap:0;font-size:14px;padding:6px 0}
+.adc td:nth-child(n+3),.adc th:nth-child(n+3){text-align:right}
+.adc td:last-child,.adc th:last-child{text-align:left;padding-left:16px}
+</style>
+</head>
+<body>
+<header class="top"><div class="wrap top-in">
+  <a class="brand" href="./"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="5" fill="#FFC21A" stroke="currentColor" stroke-width="2"/><path d="M12 1.5v3M12 19.5v3M1.5 12h3M19.5 12h3M4.6 4.6l2.1 2.1M17.3 17.3l2.1 2.1M4.6 19.4l2.1-2.1M17.3 6.7l2.1-2.1" stroke="currentColor" stroke-width="2" stroke-linecap="round" fill="none"/></svg>SolarSentinel <small>Hardware view</small></a>
+  <nav class="tabs" id="tabs" aria-label="Choose a panel"></nav>
+  <div class="top-r">
+    <span class="live"><i class="dot" id="ldot"></i><span id="link">Connecting…</span></span>
+    <span class="clock num" id="clock"></span>
+    <button class="btn primary sm" id="ctl-btn" type="button" aria-expanded="false" aria-controls="rail">Controls</button>
+    <button class="btn sm" id="theme" type="button" aria-pressed="false">Dark mode</button>
+  </div>
+</div></header>
+
+<div class="wrap lay">
+<main>
+  <section class="sec" style="padding-top:24px">
+    <h2 class="h2">The machine, live</h2>
+    <p class="say" id="say" aria-live="polite">Connecting to the simulator…</p>
+    <div class="dwrap"><svg class="d" id="machine" viewBox="0 0 1040 530" role="img" aria-label="Water side of one panel node: rain gutter, tap, tank, valves, spray pipe, panel and blower"></svg></div>
+    <p class="cap">Each cell shows its real temperature in the simulator, coloured against the panel's median (blue cooler, red hotter). The tan film is dust and the white patch is a bird dropping, both placed by the simulator. The four sun dots are the corner light sensors; they turn blue when the light is uneven.</p>
+  </section>
+
+  <section class="sec">
+    <h2 class="h2">The electronics</h2>
+    <p class="lede" style="margin:4px 0 14px">Everything the ESP32 reads goes through two multiplexers into one 16-bit ADC, so the ESP32's own noisy ADC is never used. Sensors on the 5 V rail switch off while it sleeps.</p>
+    <div class="dwrap"><svg class="d" id="elec" viewBox="0 0 1040 520" role="img" aria-label="Electronics of one node: sensors, ADS1115, INA219, ESP32, relay module"></svg></div>
+  </section>
+
+  <section class="sec">
+    <div class="grid g2">
+      <div>
+        <h2 class="h2">What the ESP32 is running</h2>
+        <p class="lede" id="progt" style="margin:4px 0 12px"></p>
+        <div class="code" id="code" role="img" aria-label="The firmware loop"></div>
+        <div class="fsm"><span class="st" id="s0">IDLE</span><span class="sep">then</span><span class="st" id="s1">WATER</span><span class="sep">then</span><span class="st" id="s2">AIR</span></div>
+        <div class="prog"><i id="prog"></i></div>
+        <div class="fsm"><span class="st" id="a0">Awake</span><span class="st" id="a1">Deep sleep</span><span class="st" id="a2">Tap refill</span></div>
+      </div>
+      <div>
+        <h2 class="h2">Power: <span id="pmode"></span></h2>
+        <dl class="kp">
+          <div><dt>Node draws now</dt><dd id="kmw">–</dd></div>
+          <div><dt>Node used today</dt><dd id="kwh">–</dd></div>
+          <div><dt>If it never slept</dt><dd id="kao">–</dd></div>
+          <div><dt>Washing recovered</dt><dd id="krec">–</dd></div>
+        </dl>
+        <div class="mb"><span>Node used</span><div class="bar"><i id="bnode" style="background:var(--asleep)"></i></div></div>
+        <div class="mb"><span>Recovered</span><div class="bar"><i id="brec" style="background:var(--ok)"></i></div></div>
+        <p class="cap">Today so far, all panels. "Recovered" is the simulator's ground truth; a real install estimates it from power before and after each wash.</p>
+      </div>
+    </div>
+  </section>
+
+  <section class="sec">
+    <h2 class="h2">What the ESP32 reads right now</h2>
+    <p class="lede" style="margin:4px 0 12px">Every analog input goes through the ADS1115. Counts are the raw 16-bit answer, and the last column is what the firmware turns them into.</p>
+    <div class="scroll"><table class="adc" id="adc"></table></div>
+  </section>
+</main>
+
+<aside class="rail" id="rail" aria-label="Controls">
+  <button class="btn sm" id="ctl-close" type="button">Close controls</button>
+  <div class="blk"><h2>Cause trouble</h2><p class="muted" style="margin:0 0 8px;font-size:14.5px">Acts on the panel chosen at the top of the page.</p><div id="ctl"></div></div>
+  <div class="blk"><h2>The world</h2><dl class="facts" id="world"></dl></div>
+  <div><h2>What the node did</h2><ul class="log" id="log"></ul></div>
+</aside>
+</div>
+
+<script src="../../shared/config.js"></script>
+<script src="../../shared/ss.js"></script>
+<script>
+(function () {
+  const $ = (id) => document.getElementById(id), nf = SS.fmt.n;
+  SS.theme($('theme'));
+  let S = null, recv = 0, sel = 0;
+
+  /* ---------- drawing helpers ---------- */
+  const T = (x, y, txt, cls, anchor, id) => `<text x="${x}" y="${y}" class="${cls || 's'}"${anchor ? ` text-anchor="${anchor}"` : ''}${id ? ` id="${id}"` : ''}>${txt}</text>`;
+  const BX = (x, y, w, h, cls, id) => `<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="8" class="bx ${cls || ''}"${id ? ` id="${id}"` : ''}/>`;
+
+  /* ---------- the water side ---------- */
+  function buildMachine() {
+    let cells = '', noz = '', rain = '', air = '', ldr = '';
+    for (let i = 0; i < 8; i++) {
+      const x = 414 + (i & 3) * 117, y = 262 + (i >> 2) * 74;
+      cells += `<rect id="cell${i}" x="${x}" y="${y}" width="111" height="68" rx="3"/><rect id="dust${i}" x="${x}" y="${y}" width="111" height="68" rx="3" fill="#8C6A3C" opacity="0"/>` +
+        `<ellipse id="bird${i}" cx="${x + 55}" cy="${y + 34}" rx="26" ry="16" fill="#F2F0E8" stroke="#B9B2A0" opacity="0"/><text id="ct${i}" x="${x + 55}" y="${y + 40}" text-anchor="middle" class="cellt"></text>`;
+    }
+    [470, 580, 690, 800].forEach((x, k) => {
+      noz += `<rect x="${x - 7}" y="198" width="14" height="14" fill="var(--ink2)"/>`;
+      for (let j = 0; j < 5; j++) { const dx = x + (j - 2) * 8; noz += `<line class="drop" x1="${dx}" x2="${dx}" y1="216" y2="228" style="animation-delay:${(j * 0.16 + (k % 2) * 0.08).toFixed(2)}s"/>`; }
+    });
+    for (let k = 0; k < 14; k++) rain += `<line class="rainline" x1="${28 + k * 8}" x2="${24 + k * 8}" y1="60" y2="80" style="animation-delay:${(k * 0.09).toFixed(2)}s"/>`;
+    for (let k = 0; k < 9; k++) { const y = 272 + k * 16; air += `<line class="streak" x1="878" x2="842" y1="${y}" y2="${y}" style="animation-delay:${(k * 0.07).toFixed(2)}s"/>`; }
+    [[430, 248, 'start', 14], [860, 248, 'end', -14], [430, 418, 'start', 14], [860, 418, 'end', -14]].forEach(([x, y, a, dx], k) => {
+      ldr += `<circle id="ldr${k}" cx="${x}" cy="${y}" r="7" fill="#FFC21A" stroke="var(--ink)" stroke-width="2"/>${T(x + dx, y + 5, '', 'v', a, 'ldt' + k)}`;
+    });
+    $('machine').innerHTML =
+      `<g id="sky"><circle id="sun" cx="34" cy="34" r="13" fill="#FFC21A" stroke="var(--ink)" stroke-width="2"/><path id="moon" d="M40 20a14 14 0 1 0 0 28a11 11 0 0 1 0-28z" fill="var(--ink3)"/></g>${T(60, 40, '', 'v', '', 'skyt')}<g id="rainfx">${rain}</g>` +
+      `<rect x="24" y="96" width="124" height="10" rx="3" fill="var(--rule2)"/>${T(24, 88, 'Rain gutter')}<path class="pipe" d="M60 106V222"/><path id="flowRain" class="flow" d="M60 106V222"/>` +
+      `<rect x="172" y="54" width="40" height="14" rx="3" fill="var(--ink2)"/><rect x="190" y="66" width="12" height="26" fill="var(--ink2)"/>${T(220, 66, 'Tap water', 't')}${T(220, 84, 'the back-up source')}<path class="pipe" d="M196 92V222"/><path id="flowTap" class="flow tapf" d="M196 92V222"/>` +
+      `<circle id="tapC" cx="196" cy="152" r="17" class="vlv"/><path id="tapX" d="M186 142l20 20M206 142l-20 20" class="vx"/>${T(222, 148, 'K2 tap valve', 't')}${T(222, 166, '12 V solenoid, normally closed')}${T(222, 184, 'closed', 'v', '', 'tapt')}` +
+      `<rect x="40" y="222" width="176" height="230" rx="8" fill="var(--paper)" stroke="var(--ink)" stroke-width="2.5"/><rect id="water" x="44" y="448" width="168" height="0" fill="var(--water)" opacity=".75"/>` +
+      `<g id="tankping"><rect x="96" y="200" width="64" height="22" rx="3" fill="var(--paper)" stroke="var(--ink)" stroke-width="2"/><line class="ping" x1="112" x2="112" y1="226" y2="236"/><line class="ping" x1="128" x2="128" y1="226" y2="236" style="animation-delay:.2s"/><line class="ping" x1="144" x2="144" y1="226" y2="236" style="animation-delay:.4s"/></g>${T(128, 192, 'JSN-SR04T-2.0', 's', 'middle')}` +
+      `<circle id="fHigh" cx="204" cy="252" r="7" fill="var(--rule2)" stroke="var(--ink)" stroke-width="2"/>${T(190, 257, 'float high', 's', 'end')}<circle id="fLow" cx="204" cy="424" r="7" fill="var(--rule2)" stroke="var(--ink)" stroke-width="2"/>${T(190, 429, 'float low', 's', 'end')}` +
+      `${T(128, 336, '', 'big', 'middle', 'tankpct')}${T(128, 358, '', 's', 'middle', 'tanklit')}${T(128, 376, '', 's', 'middle', 'tanksens')}${T(128, 476, '20 L tank: rain first, tap as back-up', 's', 'middle')}${T(128, 496, '', 'v', 'middle', 'holdt')}` +
+      `<path class="pipe" d="M216 438H350V196H890"/><path id="flowS" class="flow" d="M216 438H350V196H890"/>` +
+      `<circle id="spC" cx="290" cy="438" r="17" class="vlv"/><path id="spX" d="M280 428l20 20M300 428l-20 20" class="vx"/>${T(290, 474, 'K1 spray valve', 't', 'middle')}${T(290, 492, '12 V solenoid', 's', 'middle')}${T(290, 510, 'closed', 'v', 'middle', 'spt')}` +
+      `${T(620, 184, 'Spray pipe along the top edge', 's', 'middle')}<rect x="400" y="226" width="490" height="214" rx="6" fill="var(--frame)"/><rect x="412" y="260" width="466" height="146" fill="var(--cell)"/><g id="cells">${cells}</g>` +
+      `<rect id="shadow" x="414" y="262" width="0" height="142" fill="#000" opacity="0"/><g id="spray" class="spray" style="display:none">${noz}</g><g id="air" class="blow" style="display:none">${air}</g>` +
+      `<clipPath id="skyclip"><rect x="400" y="100" width="490" height="90"/></clipPath><g clip-path="url(#skyclip)"><g id="cloud" opacity="0"><ellipse cx="0" cy="0" rx="70" ry="20" fill="var(--rule2)"/><circle cx="-28" cy="-12" r="22" fill="var(--rule2)"/><circle cx="14" cy="-20" r="28" fill="var(--rule2)"/></g></g>` +
+      `${ldr}<rect x="924" y="226" width="46" height="64" rx="4" class="bx"/><path id="wetdrop" d="M947 246q9 14 0 22q-9-8 0-22z" fill="var(--water)" opacity=".3"/>${T(947, 310, 'FC-37', 't', 'middle')}${T(947, 328, 'rain sensor', 's', 'middle')}` +
+      `<g id="blower"><rect x="924" y="352" width="96" height="88" rx="10" class="bx"/><g class="fan"><circle cx="972" cy="396" r="27" fill="none" stroke="var(--ink2)" stroke-width="2"/><path d="M972 396V370A26 26 0 0 1 994.5 383ZM972 396L994.5 409A26 26 0 0 1 972 422ZM972 396L949.5 409A26 26 0 0 1 949.5 383Z" fill="var(--ink2)"/></g></g>` +
+      `<path class="pipe" d="M924 396H890"/>${T(972, 462, 'K3 air blower', 't', 'middle')}${T(972, 480, '12 V 5015 blower', 's', 'middle')}${T(972, 498, 'off', 'v', 'middle', 'blowt')}`;
+  }
+
+  /* ---------- the electronics ---------- */
+  const PINS = [['SDA', 21], ['SCL', 22], ['S0', 25], ['S1', 26], ['S2', 27], ['5V on', 23], ['TRIG', 4], ['ECHO', 5], ['rain', 34], ['float lo', 32], ['float hi', 33], null, ['K1', 16], ['K2', 17], ['K3', 18]];
+  function buildElec() {
+    const SENS = [['8× LM35DZ', 'panel temperature, 2 × 4 grid', 'mux CD74HC4051E #1, GPIO 25 26 27', 'e0'], ['4× GL5528', 'light at the four panel corners', 'mux CD74HC4051E #2, same selects', 'e1'],
+      ['Voltage divider', '56 kΩ + 10 kΩ, ratio 6.6', 'panel voltage', 'e2'], ['ACS712ELCTR-20A', 'panel current, 100 mV per amp', '5 V part, output 2.5 V at zero', 'e3'],
+      ['JSN-SR04T-2.0', 'tank level by ultrasound', '+ 2 float switches, direct to GPIO', 'e4'], ['FC-37 rain sensor', 'LM393 board, low = wet', 'direct to GPIO 34', 'e5']];
+    let s = '<g id="g-sens">';
+    SENS.forEach(([a, b, c, id], i) => { const y = 16 + i * 82; s += BX(16, y, 250, 66, '') + T(28, y + 22, a, 't') + T(28, y + 40, b) + T(28, y + 57, c) + T(256, y + 22, '', 'v', 'end', id); });
+    s += '</g>';
+    const wires = [[49, 80, 274], [131, 110, 282], [213, 140, 290], [295, 170, 298]];
+    wires.forEach(([y0, y1, jx]) => { s += `<path class="wire" d="M266 ${y0}H${jx}V${y1}H330"/>`; });
+    s += '<g id="g-ads">' + BX(330, 16, 230, 190, '') + T(342, 40, 'ADS1115 · 16-bit ADC', 't') + T(342, 58, 'I2C address 0x48, 860 samples/s');
+    ['A0 temperatures', 'A1 light', 'A2 panel volts', 'A3 panel amps'].forEach((n, i) => { const y = 80 + i * 30; s += `<circle cx="330" cy="${y}" r="4.5" fill="var(--ink)"/>${T(342, y + 5, n, 's')}${T(548, y + 5, '', 'v', 'end', 'a' + i)}`; });
+    s += '</g>' + BX(330, 230, 230, 100, 'soft') + T(342, 254, 'INA219 power monitor', 't') + T(342, 272, 'I2C address 0x40, on the 12 V rail') + T(342, 296, '', 'v', '', 'inat') + T(342, 316, 'counts the valves and blower too');
+    s += BX(330, 354, 230, 72, 'soft') + T(342, 378, 'TPS22918 load switch', 't') + T(342, 396, '5 V rail for sensors and relays') + T(342, 416, '', 'v', '', 'railt');
+    s += BX(330, 450, 230, 56, 'soft') + T(342, 474, '12 V battery + charger', 't') + T(342, 492, 'MP1584EN buck: 12 V to 5 V');
+    s += `<path class="wire" id="i2c" d="M560 60H620M560 280H590V60"/>${T(576, 52, 'I2C', 's')}`;
+    s += BX(620, 16, 404, 262, '', 'esprect') + T(636, 42, 'ESP32 · DFRobot FireBeetle (DFR0478)', 't') + T(636, 62, '', 's', '', 'esp1') + T(636, 80, '', 's', '', 'esp2');
+    s += '<g id="espz"><text class="zzz" x="962" y="48">z</text><text class="zzz" x="980" y="42" style="animation-delay:.7s">z</text><text class="zzz" x="998" y="36" style="animation-delay:1.4s">Z</text></g>';
+    PINS.forEach((p, i) => { if (!p) return; const x = 636 + (i % 4) * 96, y = 104 + Math.floor(i / 4) * 40;
+      s += `<g class="chip" id="pin${p[1]}"><rect x="${x}" y="${y}" width="90" height="30" rx="5"/>${T(x + 8, y + 20, p[0], 'pn')}${T(x + 82, y + 20, p[1], 'pg', 'end')}</g>`; });
+    s += `<g id="wifi"><path d="M934 224q12-11 24 0M939 232q7-7 14 0" stroke="var(--ink)" stroke-width="2.5" fill="none" stroke-linecap="round"/><circle cx="946" cy="240" r="2.6" fill="var(--ink)"/></g>${T(964, 238, '', 's', '', 'wifit')}`;
+    s += '<g id="g-rel">' + BX(620, 300, 404, 140, 'soft') + T(636, 410, '4-channel relay module · SRD-05VDC', 't') + T(636, 428, 'opto-isolated, active LOW, logic on the switched rail');
+    [['K1', 'spray valve'], ['K2', 'tap valve'], ['K3', 'blower'], ['K4', 'spare']].forEach(([k, n], i) => { const x = 636 + i * 96;
+      s += `<rect x="${x}" y="316" width="86" height="66" rx="6" class="bx"/>${T(x + 10, 338, k, 't')}${T(x + 10, 356, n)}<circle id="led${i}" cx="${x + 70}" cy="334" r="7" fill="var(--rule)" stroke="var(--rule2)" stroke-width="1.5"/>`; });
+    s += `<path class="wire" id="wr0" d="M681 254V316"/><path class="wire" id="wr1" d="M777 254V316"/><path class="wire" id="wr2" d="M873 254V316"/></g>`;
+    $('elec').innerHTML = s;
+  }
+
+  /* ---------- the firmware listing ---------- */
+  const CODE = [['clean', '  cleanLoop(); tapLoop();   // wash, refill'], ['poll', '  if (1 s) pollCommand();   // GET order'], ['rep', '  if (2 s) publishReading();// sensors, POST'],
+    ['sleep', '  if (dark or rain) sleepNow();'], ['timer', '  if (IDLE && 2 h) startClean();']];
+  $('code').innerHTML = '<div class="cm">void loop() {</div>' + CODE.map((c) => `<div id="c_${c[0]}">${c[1]}</div>`).join('') + '<div class="cm">}</div>';
+
+  /* ---------- controls ---------- */
+  const send = (cmd, extra) => { const body = Object.assign({ cmd, panel: ctl.sel }, extra); return SS.local ? fetch('/do', { method: 'POST', body: JSON.stringify(body) }) : SS.post('/api/sim', body); };
+  const ctl = SS.controls($('ctl'), send, { panelPicker: false });
+
+  /* ---------- data in ---------- */
+  function setS(s) { S = s; recv = Date.now(); render(); }
+  if (SS.local) {
+    setInterval(async () => { try { setS(await (await fetch('/state')).json()); } catch (e) { say('Lost the simulator: ' + e.message); } }, 250);
+  } else {
+    SS.feed((m) => { if (m.sim) setS(m.sim); else { S = null; say('The API is up, but the simulator is not sending to it yet.'); } }, (st) => { if (st === 'offline') say('Cannot reach the API at ' + SS.api); });
+  }
+  setInterval(() => { if (S) render(); }, 250);                     // keeps the wash progress bar moving between messages
+  function say(t) { $('say').textContent = t; $('link').textContent = t; $('ldot').className = 'dot bad'; }
+
+  const fmtmw = SS.fmt.mw;
+  function render() {
+    const P = S.panels[sel] || S.panels[0], N = P.node, asleep = P.mode === 'sleep', age = (Date.now() - recv) / 1000, C = S.cfg, A = N.adc;
+    const ago = (k) => (S.ago ? S.ago[k] + age : 99);
+    /* header */
+    $('tabs').innerHTML = S.panels.map((p, i) => `<button class="btn sm" type="button" data-p="${i}" aria-pressed="${i === sel}">${p.id}${p.mode === 'sleep' ? ', asleep' : ''}</button>`).join('');
+    $('ldot').className = 'dot ' + (S.link ? 'ok' : 'bad');
+    $('link').textContent = S.link ? 'Sending to ' + S.api : 'Cannot reach ' + S.api + (S.link_error ? ' (' + S.link_error + ')' : '');
+    $('clock').textContent = S.clock + (S.raining ? ', raining' : '') + (S.skipping ? ', skipping ahead…' : '');
+    ctl.update(S);
+    /* what is happening, in one sentence */
+    const sp = N.cs === 'WATER' && !asleep, bl = N.cs === 'AIR' && !asleep, tp = P.tap, ms = (N.elapsed_ms || 0) + (N.cs === 'IDLE' ? 0 : age * 1000);
+    $('say').textContent = asleep ? `Deep sleep (${P.sleep_reason}). Radio, sensors and valves are off. It wakes in about ${Math.max(1, Math.round(Math.max(0, P.wake_in_s - age * S.speed) / 60))} min to look at the sun.`
+      : sp ? `Washing: the spray valve K1 is open. Water runs from the tank to the spray pipe (${Math.min(N.total_ms, ms) / 1000 | 0} s of ${N.total_ms / 1000} s).`
+      : bl ? `Drying: the blower K3 is on (${Math.min(N.total_ms, ms) / 1000 | 0} s of ${N.total_ms / 1000} s).`
+      : tp ? `Refilling the tank from the tap: K2 is open. The tank is at ${P.tank}%.`
+      : N.timer_on ? 'Idle. The 2 hour backup timer is on.' : 'Idle. Waiting for an order from the API.';
+    /* sky */
+    const day = S.sun_wm2 > 0;
+    $('sun').style.display = day ? '' : 'none'; $('moon').style.display = day ? 'none' : '';
+    $('skyt').textContent = S.raining ? 'Raining' : day ? `Sun ${nf(S.sun_wm2)} W/m², ${S.ambient_c} °C` : `Night, ${S.ambient_c} °C`;
+    $('rainfx').setAttribute('class', S.raining ? 'raining' : '');
+    /* cells */
+    const grid = [P.temps.slice(0, 4), P.temps.slice(4, 8)], sc = SS.heat.scaleOf(grid);
+    P.temps.forEach((t, i) => {
+      const rgb = SS.heat.ramp(SS.heat.tOf(t, sc)), dark = (0.2126 * rgb[0] + 0.7152 * rgb[1] + 0.0722 * rgb[2]) / 255 < 0.5;
+      $('cell' + i).setAttribute('fill', `rgb(${rgb.map(Math.round)})`); $('ct' + i).textContent = t.toFixed(0) + '°'; $('ct' + i).style.fill = dark ? '#fff' : '#16191C';
+      $('dust' + i).setAttribute('opacity', Math.min(0.75, Math.max(0, P.soil[i] - P.stuck[i]) * 2.2)); $('bird' + i).setAttribute('opacity', Math.min(0.95, P.stuck[i] * 2.2));
+    });
+    const lc = N.last.corners || [0, 0, 0, 0], lm = lc.reduce((a, b) => a + b, 0) / 4, uneven = (Math.max(...lc) - Math.min(...lc)) / Math.max(lm, 1) > 0.25;
+    lc.forEach((l, k) => { $('ldr' + k).setAttribute('fill', `hsl(45 100% ${28 + Math.min(1, l / 100000) * 37}%)`); $('ldr' + k).setAttribute('stroke', uneven ? 'var(--shade)' : 'var(--ink)'); $('ldt' + k).textContent = Math.round(l / 1000) + 'k lux'; $('ldt' + k).style.fill = uneven ? 'var(--shade)' : ''; });
+    if (P.cloud_x == null) { $('shadow').setAttribute('opacity', 0); $('cloud').setAttribute('opacity', 0); }
+    else { const a = Math.max(0, P.cloud_x - 1.3), b = Math.min(1, P.cloud_x); $('shadow').setAttribute('x', 414 + a * 462); $('shadow').setAttribute('width', Math.max(0, (b - a) * 462)); $('shadow').setAttribute('opacity', 0.4); $('cloud').setAttribute('transform', `translate(${414 + (P.cloud_x - 0.65) * 462},160)`); $('cloud').setAttribute('opacity', 0.9); }
+    $('wetdrop').setAttribute('opacity', P.raining ? 1 : 0.3);
+    /* valves, flows, blower */
+    const valve = (c, x, on) => { $(c).setAttribute('class', 'vlv' + (on ? ' on' : '')); $(x).style.display = on ? 'none' : ''; };
+    valve('spC', 'spX', sp); valve('tapC', 'tapX', tp);
+    $('spray').style.display = sp ? '' : 'none'; $('air').style.display = bl ? '' : 'none';
+    $('blower').setAttribute('class', bl ? 'spinning' : '');
+    $('spt').textContent = sp ? 'OPEN' : 'closed'; $('tapt').textContent = tp ? 'OPEN, refilling' : 'closed'; $('blowt').textContent = bl ? 'RUNNING' : 'off';
+    $('flowS').classList.toggle('go', sp); $('flowTap').classList.toggle('go', tp); $('flowRain').classList.toggle('go', P.raining && P.tank < 100);
+    $('holdt').textContent = P.tap_hold && N.tank_sensor < 25 ? 'Rain expected: tap valve held shut' : '';
+    $('holdt').style.fill = 'var(--dust)';
+    /* tank */
+    const h = Math.round(2.22 * P.tank); $('water').setAttribute('height', h); $('water').setAttribute('y', 448 - h);
+    $('tankpct').textContent = P.tank + '%'; $('tanklit').textContent = nf(P.tank * C.tank_l / 100, 1) + ' L of ' + C.tank_l + ' L'; $('tanksens').textContent = 'sensor reads ' + N.tank_sensor + '%';
+    $('fHigh').setAttribute('fill', P.tank >= 95 ? 'var(--ok)' : 'var(--rule2)'); $('fLow').setAttribute('fill', P.tank > 6 ? 'var(--ok)' : 'var(--fault)');
+    $('tankping').setAttribute('class', !asleep && Math.floor(Date.now() / 1000) % 2 === 0 ? 'pinging' : '');
+
+    /* electronics */
+    const rec = !asleep && ago('report') < 0.9, polling = !asleep && ago('poll') < 0.5, pg = !asleep && Math.floor(Date.now() / 1000) % 2 === 0;
+    const temps = A.temp.map((m) => m[1] / C.mvc), avg = (a) => a.reduce((x, y) => x + y, 0) / a.length;
+    const set = (id, t) => { const el = $(id); if (el) el.textContent = t; };
+    set('e0', asleep ? 'off' : `${Math.min(...temps).toFixed(0)}–${Math.max(...temps).toFixed(0)} °C`); set('e1', asleep ? 'off' : `${nf(lm / 1000, 0)}k lux`); set('e2', asleep ? 'off' : N.last.v + ' V'); set('e3', asleep ? 'off' : N.last.a + ' A');
+    set('e4', asleep ? 'off' : N.tank_sensor + ' %'); set('e5', asleep ? 'off' : P.raining ? 'wet' : 'dry');
+    set('a0', asleep ? '' : (avg(A.temp.map((m) => m[1])) / 1000).toFixed(2) + ' V'); set('a1', asleep ? '' : (avg(A.ldr.map((m) => m[1])) / 1000).toFixed(2) + ' V'); set('a2', asleep ? '' : (A.volt[1] / 1000).toFixed(2) + ' V'); set('a3', asleep ? '' : (A.curr[1] / 1000).toFixed(2) + ' V');
+    set('inat', 'Node draw: ' + fmtmw(N.mw)); set('railt', asleep ? 'OFF, GPIO 23 held low' : 'ON, GPIO 23 high');
+    ['g-sens', 'g-ads', 'g-rel'].forEach((id) => $(id).setAttribute('class', asleep ? 'dim' : 'lit'));
+    $('esprect').setAttribute('stroke-width', asleep ? 2 : 3); $('espz').setAttribute('class', asleep ? 'sleepy' : '');
+    set('esp1', asleep ? `Deep sleep (${P.sleep_reason}), ${fmtmw(N.mw)}` : `Awake, ${N.cs.toLowerCase()}, ${fmtmw(N.mw)}`);
+    set('esp2', asleep ? `Wakes in ${Math.max(1, Math.round(Math.max(0, P.wake_in_s - age * S.speed) / 60))} min to look at the sun` : `Spray ${sp ? 'ON' : 'off'}, tap ${tp ? 'ON' : 'off'}, blower ${bl ? 'ON' : 'off'}`);
+    const chip = (g, cls) => { const el = $('pin' + g); if (el) el.setAttribute('class', 'chip ' + (cls || '')); };
+    [21, 22, 25, 26, 27].forEach((g) => chip(g, rec ? 'amber' : '')); chip(23, asleep ? 'off' : 'go'); chip(4, pg ? 'amber' : ''); chip(5, pg ? 'amber' : ''); chip(32, ''); chip(33, '');
+    chip(34, P.raining && !asleep ? 'wet' : ''); chip(16, sp ? 'go' : ''); chip(17, tp ? 'go' : ''); chip(18, bl ? 'go' : '');
+    [sp, tp, bl, false].forEach((on, i) => { const l = $('led' + i); l.setAttribute('fill', on ? 'var(--ok)' : 'var(--rule)'); l.setAttribute('stroke', on ? 'var(--ok)' : 'var(--rule2)'); });
+    [sp, tp, bl].forEach((on, i) => $('wr' + i).setAttribute('class', 'wire' + (on ? ' act' : '')));
+    $('i2c').setAttribute('class', 'wire' + (rec ? ' act' : ''));
+    $('wifi').setAttribute('opacity', asleep ? 0.15 : 1);
+    set('wifit', asleep ? 'radio off' : rec ? 'sending' : polling ? 'asking' : 'radio on');
+
+    /* firmware, state machines, power */
+    const hl = (id, on) => { $(id).className = on ? 'hl' : ''; };
+    hl('c_clean', !asleep && (N.cs !== 'IDLE' || tp)); hl('c_poll', polling); hl('c_rep', rec); hl('c_sleep', asleep); hl('c_timer', !asleep && N.timer_on && N.timer_in_s <= 0 && N.cs === 'IDLE');
+    ['IDLE', 'WATER', 'AIR'].forEach((n, i) => { $('s' + i).className = 'st' + (!asleep && N.cs === n ? ' cur' : ''); });
+    $('a0').className = 'st' + (!asleep ? ' cur' : ''); $('a1').className = 'st' + (asleep ? ' cur' : ''); $('a2').className = 'st' + (tp ? ' cur' : '');
+    $('prog').style.width = (N.cs === 'IDLE' || asleep ? 0 : Math.min(100, ms / N.total_ms * 100)) + '%';
+    $('progt').textContent = asleep ? 'Asleep, so nothing runs. On its timer the ESP32 looks at the four light sensors and the rain sensor, and goes back to sleep unless it is day and dry.'
+      : N.cs === 'IDLE' ? (N.timer_on ? `The backup timer fires in ${Math.max(0, Math.round(N.timer_in_s / 60))} simulated minutes.` : 'The firmware loop below runs all day. It is a line-for-line port of solarsentinel.ino.') : 'A wash is running: water first, then the blower.';
+    const T2 = S.today;
+    $('pmode').textContent = asleep ? 'deep sleep' : 'awake';
+    $('kmw').textContent = fmtmw(N.mw); $('kwh').textContent = nf(T2.node_wh, 2) + ' Wh'; $('kao').textContent = nf(T2.always_on_wh, 2) + ' Wh'; $('krec').textContent = nf(T2.recovered_wh, 0) + ' Wh';
+    const mx = Math.max(T2.node_wh, T2.recovered_wh, 1); $('bnode').style.width = T2.node_wh / mx * 100 + '%'; $('brec').style.width = T2.recovered_wh / mx * 100 + '%';
+
+    /* table, world, log */
+    const cell = (a) => `<td>${nf(a[0], 1)}</td><td>${nf(a[1], 1)}</td>`;
+    const CN = ['top left', 'top right', 'bottom left', 'bottom right'];
+    $('adc').innerHTML = '<tr><th>Input</th><th>Sensor</th><th>Counts</th><th>Millivolts</th><th>The firmware turns it into</th></tr>' +
+      `<tr><td>A2</td><td>Panel voltage</td>${cell(A.volt)}<td>${nf(A.volt[1] / 1000, 3)} V × ${C.volt_div} = ${N.last.v} V</td></tr>` +
+      `<tr><td>A3</td><td>ACS712 current</td>${cell(A.curr)}<td>(${nf(A.curr[1] / 1000, 3)} − ${C.zero}) ÷ ${C.vpa} = ${N.last.a} A</td></tr>` +
+      A.ldr.map((m, k) => `<tr><td>A1, mux ${k}</td><td>GL5528, ${CN[k]}</td>${cell(m)}<td>${nf(lc[k], 0)} lux</td></tr>`).join('') +
+      A.temp.map((m, i) => `<tr><td>A0, mux ${i}</td><td>LM35DZ, row ${(i >> 2) + 1} column ${(i & 3) + 1}</td>${cell(m)}<td>${nf(m[1] / C.mvc, 1)} °C</td></tr>`).join('');
+    const fact = (k, v) => `<div><dt>${k}</dt><dd>${v}</dd></div>`;
+    $('world').innerHTML = fact('Dust on ' + P.id, P.soil_pct + '%') + fact('Tank', `${P.tank}% (sensor ${N.tank_sensor}%)`) + fact('Tap water used', nf(N.tap_s * C.tap_l_s, 1) + ' L') + fact('Water sprayed', nf(N.spray_s * C.spray_l_s, 1) + ' L') + fact('Sleeps taken', N.sleeps) +
+      fact('Dust storm', S.storm ? 'yes' : 'no') + fact('Rain forecast', S.forecast_rain ? 'yes' : 'no') + fact('Raining', S.raining ? 'yes' : 'no') + fact('Site, all panels today', `tap ${nf(T2.tap_l, 1)} L, rain in ${nf(T2.rain_l, 1)} L, sprayed ${nf(T2.spray_l, 1)} L`);
+    $('log').innerHTML = S.events.slice().reverse().map((e) => `<li><span>${SS.esc(e)}</span></li>`).join('') || '<li><span>Nothing yet.</span></li>';
+  }
+
+  const drawer = (open) => { $('rail').classList.toggle('open', open); $('ctl-btn').setAttribute('aria-expanded', open); };
+  $('ctl-btn').onclick = () => drawer(!$('rail').classList.contains('open')); $('ctl-close').onclick = () => drawer(false);
+  document.addEventListener('keydown', (e) => { if (e.key === 'Escape') drawer(false); });
+  $('tabs').addEventListener('click', (e) => { const b = e.target.closest('button'); if (b) { sel = +b.dataset.p; ctl.sel = sel; if (S) render(); } });
+  buildMachine(); buildElec();
+})();
+</script>
+</body>
+</html>

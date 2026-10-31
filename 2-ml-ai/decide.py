@@ -19,6 +19,7 @@ STRING_AREA_M2 = 6.8             # each node watches a 1.5 kW string; forecast_k
 PEAK_SUN_HOURS = 4.8             # clear-day irradiance in kWh/m2/day, scaled by the weather feed
 UNEVEN_LIGHT_PCT = 25.0          # corner light sensors disagree by more than this: a shadow or passing cloud, not dirt
 HOT_PATCH_C = 5.0                # a cell this far above the median is a hot patch: wash once to find out if it is dirt
+STATE_LABEL = {"ok": "Healthy", "dust": "Dusty", "shading": "Shaded", "hotspot": "Hot cell", "fault": "Cracked cell"}
 
 SITE_LATITUDE = float(os.getenv("SOLAR_LATITUDE", "12.9716"))
 SITE_LONGITUDE = float(os.getenv("SOLAR_LONGITUDE", "77.5946"))
@@ -89,7 +90,8 @@ def decide(reading, history=None, cleaning_result=None, weather=None):
 
     if lux < MIN_LUX:
         return {**out, "state": "ok", "efficiency_loss_pct": 0.0, "model_score_pct": 0.0,
-                "reason": "Low sunlight (night or heavy cloud). Analysis paused."}
+                "reason": "Low sunlight (night or heavy cloud). Analysis paused.",
+                "trace": [{"step": "Light", "ok": None, "text": f"Average light is {lux / 1000:.0f}k lux, too low to judge the panel. Analysis paused."}]}
 
     prediction = predict_panel(reading, history=history, cleaning_result=cleaning_result)
     state = prediction["state"]
@@ -102,6 +104,14 @@ def decide(reading, history=None, cleaning_result=None, weather=None):
     efficiency_loss = round(max(0.0, min(100.0, (expected_power - actual_power) / expected_power * 100)), 2)
     out.update(state=state, efficiency_loss_pct=efficiency_loss, light_spread_pct=round(light["light_spread_pct"], 1), model_score_pct=prediction.get("model_score_pct", 0.0),
                diagnosis_stage=prediction.get("diagnosis_stage", "before_cleaning"))
+
+    # The decision trace: every check the program made, in order, for the web page. ok=True supports a wash, False blocks it, None is information.
+    spread = light["light_spread_pct"]
+    stage = "after-wash model" if out["diagnosis_stage"] == "after_cleaning" else "before-wash model"
+    trace = [{"step": "Light", "ok": not uneven,
+              "text": (f"The four corner light sensors differ by {spread:.0f}%: a shadow or passing cloud, not dirt." if uneven
+                       else f"The four corner light sensors agree (they differ by {spread:.0f}%), so it is not a shadow.")},
+             {"step": "Diagnosis", "ok": None, "text": f"{STATE_LABEL.get(state, state)}, {out['model_score_pct']:.0f}% sure ({stage})."}]
 
     # weather and forecast (from the feed; Open-Meteo only if no feed was given)
     try:
@@ -143,6 +153,24 @@ def decide(reading, history=None, cleaning_result=None, weather=None):
             out["reason"] = "Dust loss is still smaller than the cost of a wash."
     else:
         out["reason"] = "Panel is clean and producing as expected."
+
+    tank = float(reading["tank_level_pct"])
+    if state in ("fault", "hotspot"):
+        trace.append({"step": "Washing", "ok": False, "text": "A wash cannot fix a damaged cell, so no water is used."})
+    elif state == "shading":
+        trace.append({"step": "Washing", "ok": False, "text": "Shade is not dirt, so washing will not help."})
+    elif state == "dust":
+        if hot_patch and cleaning_result is None:
+            trace.append({"step": "Heat", "ok": True, "text": f"One cell is {float(grid.max() - np.median(grid)):.0f}° above the rest. Wash once to find out if it is dirt."})
+        trace.append({"step": "Rain", "ok": None if rain is None else not rain,
+                      "text": "The weather service did not answer." if rain is None else ("Rain is forecast within 48 hours. Let it wash the panel." if rain else "No rain is forecast in the next 48 hours.")})
+        trace.append({"step": "Water", "ok": tank_ok, "text": ("No tank sensor." if tank < 0 else f"The tank is at {tank:.0f}% (a wash needs {MINIMUM_TANK_LEVEL}% or more).")})
+        trace.append({"step": "Money", "ok": out["loss_inr_per_day"] > CLEAN_COST_INR,
+                      "text": f"Dust costs Rs {out['loss_inr_per_day']:.0f} a day. One wash costs Rs {CLEAN_COST_INR:.0f}."})
+    else:
+        trace.append({"step": "Washing", "ok": None, "text": "Nothing to wash."})
+    trace.append({"step": "Decision", "ok": out["clean_now"], "text": "Wash now." if out["clean_now"] else "No wash."})
+    out["trace"] = trace
     return out
 
 

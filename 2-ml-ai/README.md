@@ -2,6 +2,14 @@
 
 Pratham B R
 
+> **Running it with the API (added Oct 31).** `ml_worker.py` long-polls the API for readings, runs `decide.py` and posts the verdicts back, printing one aligned line per verdict. Easiest, from the project folder (builds its own Python environment the first time):
+> ```
+> ./run.sh https://solarsentinel-api.pages.dev --no-sim      # Mac or Ubuntu, through Cloudflare
+> run.bat https://solarsentinel-api.pages.dev                # Windows
+> ./run.sh http://<MAC-IP>:8000 --no-sim                     # same Wi-Fi as the Mac
+> ```
+> `requirements.txt` pins scikit-learn and LightGBM because `model.pkl` was saved with exactly those versions. The ML console (`console/index.html`, served by the API at `/ml/`) shows each verdict with the checks behind it: `decide()` returns a `trace` list for that. The MQTT parts below are the first design and are not used in the demo. All commands: [../docs/WHO-RUNS-WHAT.md](../docs/WHO-RUNS-WHAT.md).
+
 ## 1. Overview
 
 The ML/AI module is the intelligence engine of **SolarSentinel – Autonomous Solar O&M Intelligence**. It monitors solar panel performance, identifies abnormal operating conditions, estimates energy production, calculates financial losses and recommends appropriate maintenance actions.

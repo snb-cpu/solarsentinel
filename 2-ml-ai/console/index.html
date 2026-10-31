@@ -1,0 +1,160 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>SolarSentinel ML program</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Ccircle cx='12' cy='12' r='5' fill='%23FFC21A' stroke='%2316191C' stroke-width='2'/%3E%3Cpath d='M12 1.5v3M12 19.5v3M1.5 12h3M19.5 12h3M4.6 4.6l2.1 2.1M17.3 17.3l2.1 2.1M4.6 19.4l2.1-2.1M17.3 6.7l2.1-2.1' stroke='%2316191C' stroke-width='2' stroke-linecap='round'/%3E%3C/svg%3E">
+<link rel="stylesheet" href="../../shared/ss.css">
+<style>
+.who{padding-block:clamp(28px,5vw,52px)}
+.who h1{font-size:clamp(28px,3.8vw,46px);line-height:1.1;font-weight:800;letter-spacing:-.02em;max-width:24ch;margin:14px 0 10px}
+.row{display:grid;grid-template-columns:minmax(0,430px) minmax(0,1fr);gap:clamp(16px,3vw,44px);padding-block:26px 34px;border-top:3px solid var(--ink)}
+@media(max-width:880px){.row{grid-template-columns:1fr}}
+.row-h{display:flex;justify-content:space-between;align-items:center;gap:12px}
+.verdict{font-size:clamp(26px,3vw,36px);font-weight:800;letter-spacing:-.02em;line-height:1.1}
+.sure{color:var(--ink2);margin:4px 0 12px}
+.trace{margin:16px 0}
+.trace li{display:grid;grid-template-columns:20px 5.6em minmax(0,1fr);gap:10px;padding:9px 0;border-bottom:1px solid var(--rule);align-items:start}
+.trace svg{width:18px;height:18px;margin-top:2px}
+.trace b{font-weight:700}
+.trace span{overflow-wrap:anywhere}
+.rules{padding:12px 14px;border:1.5px solid var(--dust);background:var(--dust-bg);border-radius:var(--r);margin:12px 0}
+.steps{counter-reset:s;max-width:74ch}
+.steps li{counter-increment:s;display:grid;grid-template-columns:2.2em 1fr;padding:10px 0;border-bottom:1px solid var(--rule)}
+.steps li::before{content:counter(s);font-weight:800}
+.act{font-weight:700;white-space:nowrap}
+.ft{padding-block:28px 48px;border-top:1px solid var(--rule);color:var(--ink3);font-size:14px}
+</style>
+</head>
+<body>
+<header class="top"><div class="wrap top-in">
+  <a class="brand" href="./"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="5" fill="#FFC21A" stroke="currentColor" stroke-width="2"/><path d="M12 1.5v3M12 19.5v3M1.5 12h3M19.5 12h3M4.6 4.6l2.1 2.1M17.3 17.3l2.1 2.1M4.6 19.4l2.1-2.1M17.3 6.7l2.1-2.1" stroke="currentColor" stroke-width="2" stroke-linecap="round" fill="none"/></svg>SolarSentinel <small>ML program</small></a>
+  <div class="top-r">
+    <span class="live"><i class="dot" id="dot"></i><span id="live">Connecting…</span></span>
+    <button class="btn sm" id="theme" type="button" aria-pressed="false">Dark mode</button>
+  </div>
+</div></header>
+
+<main class="wrap">
+  <section class="who" aria-live="polite">
+    <span id="w-chip"></span>
+    <h1 id="w-title">Connecting to the API</h1>
+    <p class="lede" id="w-body"></p>
+    <dl class="figs" id="figs"></dl>
+  </section>
+
+  <section class="sec" style="padding-top:0;border-top:0">
+    <div id="rows"><p class="empty" id="rows-wait">Waiting for the first readings…</p></div>
+  </section>
+
+  <section class="sec">
+    <div class="grid g2">
+      <div>
+        <h2 class="h2">Next 7 days</h2>
+        <p class="lede" style="margin:4px 0 12px">Energy forecast for all panels, from the weather feed's sunshine and temperature. The gap between a solid bar and its dashed outline is what today's dirt costs.</p>
+        <div class="chart" id="ch-fc"></div>
+      </div>
+      <div>
+        <h2 class="h2">What changed lately</h2>
+        <p class="lede" style="margin:4px 0 12px">One line each time a panel's verdict or wash decision changes.</p>
+        <div class="scroll"><table id="feed"></table></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="sec">
+    <h2 class="h2">How a verdict is made</h2>
+    <ol class="steps" style="margin-top:12px">
+      <li><span>Read the panel: voltage, current, four corner light sensors, eight temperatures and the tank level.</span></li>
+      <li><span>Turn that into features: the heat pattern against the panel's median, how unevenly the light falls, and power against light.</span></li>
+      <li><span>Classify the panel as healthy, dusty, shaded, hot cell or cracked cell. A second model judges it again after a wash, which separates dirt from a real fault.</span></li>
+      <li><span>Apply the rules: a shadow is never washed, no wash if rain is forecast, refill a low tank first, and wash only when the loss per day is more than the cost of a wash.</span></li>
+      <li><span>Send the verdict to the API in one request. The panel's node does the washing.</span></li>
+    </ol>
+    <p class="note" style="margin-top:20px"><b>About the accuracy.</b> The classifier was trained and tested on data from the physics simulator in this project (about 99.8% on that data). It has not been measured on real panels yet, and real data will be used to retrain it.</p>
+  </section>
+</main>
+<footer><div class="wrap ft" id="foot"></div></footer>
+
+<script src="../../shared/config.js"></script>
+<script src="../../shared/ss.js"></script>
+<script>
+(function () {
+  const $ = (id) => document.getElementById(id), nf = SS.fmt.n;
+  SS.theme($('theme'));
+  const ICON = {
+    y: '<svg viewBox="0 0 16 16" aria-label="passes"><circle cx="8" cy="8" r="8" fill="var(--ok)"/><path d="M4.5 8.5l2.4 2.4 4.6-5" stroke="#fff" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+    n: '<svg viewBox="0 0 16 16" aria-label="blocks the wash"><circle cx="8" cy="8" r="8" fill="var(--fault)"/><path d="M5.2 5.2l5.6 5.6M10.8 5.2l-5.6 5.6" stroke="#fff" stroke-width="2" fill="none" stroke-linecap="round"/></svg>',
+    i: '<svg viewBox="0 0 16 16" aria-label="information"><circle cx="8" cy="8" r="3.5" fill="var(--ink3)"/></svg>',
+    s: '<svg viewBox="0 0 16 16" aria-label="no wash"><circle cx="8" cy="8" r="8" fill="var(--ink2)"/><path d="M4.5 8h7" stroke="var(--paper)" stroke-width="2" stroke-linecap="round"/></svg>',
+  };
+  const rows = {};
+  let last = null;
+
+  function makeRow(id) {
+    const el = SS.html(`<article class="row"><div>
+        <div class="row-h"><h2 class="h2">${SS.esc(id)}</h2><span data-k="state"></span></div>
+        <div class="pv"><div class="pv-frame"><canvas></canvas><span class="pv-tag" hidden>Asleep</span></div>
+          <span class="ldr tl">${SS.sun}<b></b></span><span class="ldr tr">${SS.sun}<b></b></span><span class="ldr bl">${SS.sun}<b></b></span><span class="ldr br">${SS.sun}<b></b></span></div>
+        <div class="legend" data-k="legend"></div></div>
+      <div><p class="verdict" data-k="verdict">Waiting</p><p class="sure" data-k="sure"></p><p data-k="why"></p>
+        <div class="rules" data-k="rules" hidden></div><ul class="trace" data-k="trace"></ul>
+        <dl class="facts"><div><dt>Below expected output</dt><dd data-k="loss"></dd></div><div><dt>Costs per day</dt><dd data-k="inr"></dd></div>
+          <div><dt>Corner light differs by</dt><dd data-k="spread"></dd></div><div><dt>Model time</dt><dd data-k="ms"></dd></div></dl></div></article>`);
+    const k = (n) => el.querySelector(`[data-k=${n}]`);
+    const c = rows[id] = { el, k, pv: el.querySelector('.pv'), tag: el.querySelector('.pv-tag'), ldr: [...el.querySelectorAll('.ldr b')], hm: SS.heat.mount(el.querySelector('canvas')) };
+    $('rows').appendChild(el);
+    return c;
+  }
+
+  function updateRow(p) {
+    const c = rows[p.id] || makeRow(p.id), r = p.reading || {}, d = p.decision || {}, st = SS.panelStatus(p), asleep = st === 'asleep';
+    c.k('state').innerHTML = SS.chip(st);
+    if (r.temps_c) SS.heat.legend(c.k('legend'), c.hm.set(r.temps_c));
+    const cs = r.ldr_corners_lux || [];
+    c.ldr.forEach((b, i) => { b.textContent = cs[i] == null ? '–' : Math.round(cs[i] / 1000) + 'k'; });
+    c.pv.classList.toggle('asleep', asleep); c.tag.hidden = !asleep;
+    const ml = p.source === 'ml';
+    c.k('verdict').textContent = !d.state ? 'Waiting' : asleep ? 'No analysis while asleep' : d.clean_now ? 'Wash now' : 'No wash';
+    c.k('sure').textContent = !d.state ? '' : `${SS.STATE[d.state] || d.state}${d.model_score_pct ? ', ' + Math.round(d.model_score_pct) + '% sure' : ''}${d.diagnosis_stage ? ' (' + (d.diagnosis_stage === 'after_cleaning' ? 'after-wash' : 'before-wash') + ' model)' : ''}`;
+    c.k('why').textContent = d.reason || '';
+    const rl = c.k('rules'); rl.hidden = ml || !d.state; rl.innerHTML = '<b>Built-in rules decided this one.</b> The ML program has not answered for this panel, so the API used its simple fall-back rules. The demo keeps working.';
+    c.k('trace').innerHTML = (ml && d.trace ? d.trace : []).map((t) => `<li>${t.step === 'Decision' ? (t.ok ? ICON.y : ICON.s) : t.ok === true ? ICON.y : t.ok === false ? ICON.n : ICON.i}<b>${SS.esc(t.step)}</b><span>${SS.esc(t.text)}</span></li>`).join('');
+    c.k('loss').textContent = d.state ? nf(d.efficiency_loss_pct || 0, 1) + '%' : '–';
+    c.k('inr').textContent = d.state ? SS.fmt.inr(d.loss_inr_per_day || 0) : '–';
+    c.k('spread').textContent = d.light_spread_pct == null ? '–' : nf(d.light_spread_pct, 0) + '%';
+    c.k('ms').textContent = d.model_ms == null ? '–' : d.model_ms + ' ms';
+  }
+
+  function draw(m) {
+    last = m;
+    const P = m.panels || [], feed = m.feed || [], anyMl = P.some((p) => p.source === 'ml');
+    const ages = P.map((p) => p.ml_age_s).filter((x) => x != null), age = ages.length ? Math.min(...ages) : null;
+    const ms = Math.max(0, ...P.map((p) => (p.source === 'ml' && p.decision && p.decision.model_ms) || 0));
+    $('dot').className = 'dot ' + (m.ml_connected ? 'ok' : 'bad');
+    $('live').textContent = m.ml_connected ? 'ML program connected' : 'ML program offline';
+    $('w-chip').innerHTML = SS.chip(anyMl ? 'ok' : 'dust', anyMl ? 'ML model deciding' : 'Built-in rules deciding');
+    $('w-title').textContent = anyMl ? 'The ML program is making the decisions' : m.ml_connected ? 'The ML program is connected and waiting' : 'The ML program is offline';
+    $('w-body').textContent = anyMl ? 'Each reading goes to the model, which sends a verdict back. The Mac washes a panel only when the verdict says so.'
+      : m.ml_connected ? 'It will answer as soon as a panel sends a reading. Panels that are asleep send nothing.'
+      : 'The API is using its built-in rules, so the demo keeps working. Start the ML program with: python ml_worker.py --api ' + SS.api;
+    $('figs').innerHTML = [['Last verdict', age == null ? 'none yet' : SS.fmt.ago(age)], ['Model time', ms ? `${ms}<small>ms</small>` : '–'], ['Washes ordered', String(feed.filter((f) => f.clean_now).length)]]
+      .map(([k, v]) => `<div><dt>${k}</dt><dd>${v}</dd></div>`).join('');
+    if (P.length) { const w = $('rows-wait'); if (w) w.remove(); }
+    P.forEach(updateRow);
+    $('feed').innerHTML = '<tr><th>Time</th><th>Panel</th><th>Verdict</th><th>Action</th><th>Why</th></tr>' +
+      feed.slice().reverse().slice(0, 12).map((f) => `<tr><td>${SS.fmt.time(f.ts)}</td><td>${SS.esc(f.panel)}</td><td>${SS.chip(f.state)}</td><td class="act">${f.clean_now ? 'Wash now' : 'No wash'}</td><td>${SS.esc(f.reason)}${f.source === 'rules' ? ' <span class="muted">(built-in rules)</span>' : ''}</td></tr>`).join('');
+    $('foot').textContent = `API ${SS.api}. Money figures use ₹${(m.econ && m.econ.tariff) || 8} per kWh and ₹${(m.econ && m.econ.clean_cost) || 2} per wash.`;
+    charts();
+  }
+  function charts() { if (last && last.site) SS.chart.bars($('ch-fc'), last.site.forecast_kwh_7d || [], last.site.forecast_clean_kwh_7d || []); }
+  let rz; window.addEventListener('resize', () => { clearTimeout(rz); rz = setTimeout(charts, 150); });
+
+  SS.feed(draw, (s) => {
+    if ((s === 'offline' || s === 'retrying') && !last) { $('live').textContent = 'Cannot reach the API'; $('dot').className = 'dot bad'; $('w-title').textContent = 'Cannot reach the API'; $('w-body').textContent = 'Tried ' + SS.api + '. Check that the API is running, or open this page with ?api=https://your-api-address.'; }
+  });
+})();
+</script>
+</body>
+</html>

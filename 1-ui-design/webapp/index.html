@@ -1,153 +1,209 @@
 <!doctype html>
-<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
 <title>SolarSentinel</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Ccircle cx='12' cy='12' r='5' fill='%23FFC21A' stroke='%2316191C' stroke-width='2'/%3E%3Cpath d='M12 1.5v3M12 19.5v3M1.5 12h3M19.5 12h3M4.6 4.6l2.1 2.1M17.3 17.3l2.1 2.1M4.6 19.4l2.1-2.1M17.3 6.7l2.1-2.1' stroke='%2316191C' stroke-width='2' stroke-linecap='round'/%3E%3C/svg%3E">
+<link rel="stylesheet" href="../../shared/ss.css">
 <style>
-:root{--bg:#0b1d33;--card:#12294a;--line:#23406a;--txt:#eaf2fb;--mut:#8fa9c2;--amb:#ffb703;--ok:#2ecc71;--dust:#ffb703;--shading:#6fa8dc;--hotspot:#ff6b4a;--fault:#e63946}
-*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--txt);font:15px/1.4 -apple-system,Segoe UI,Arial,sans-serif}
-header{display:flex;align-items:center;gap:14px;padding:14px 24px;border-bottom:1px solid var(--line)}
-header h1{font-size:22px;margin:0}header small{color:var(--mut)}
-.live{margin-left:auto;display:flex;align-items:center;gap:10px;color:var(--mut)}.dot{width:10px;height:10px;border-radius:50%;background:#888}
-main{padding:18px 24px;display:grid;gap:18px}
-.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px}
-h2{margin:0 0 12px;font-size:13px;letter-spacing:.08em;text-transform:uppercase;color:var(--mut)}
-.site{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px}
-.big{background:#0f2441;border-radius:12px;padding:12px 14px}.big b{display:block;font-size:30px}.big span{color:var(--mut);font-size:12px}
-.panels{display:grid;grid-template-columns:repeat(auto-fit,minmax(380px,1fr));gap:18px}
-.ph{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}.ph b{font-size:18px}
-.pill{display:inline-block;padding:4px 14px;border-radius:99px;font-weight:800;font-size:13px;text-transform:uppercase;color:#0b1d33}
-.heat{position:relative;border-radius:10px;overflow:hidden;border:3px solid #3a5a86;background:#0a1626}
-.heat canvas{display:block;width:100%;aspect-ratio:2/1}
-.fx{position:absolute;inset:0;pointer-events:none;opacity:0;transition:opacity .3s}
-.fx.water{background:repeating-linear-gradient(180deg,#4fc3f766 0 12px,#4fc3f700 12px 28px);animation:fall .6s linear infinite}
-.fx.air{background:repeating-linear-gradient(100deg,#ffffff55 0 6px,#ffffff00 6px 40px);animation:blow .5s linear infinite}
-@keyframes fall{to{background-position:0 28px}}@keyframes blow{to{background-position:40px 0}}
-.legend{display:flex;align-items:center;gap:8px;margin-top:8px;color:var(--mut);font-size:12px}.bar{flex:1;height:8px;border-radius:4px}
-.tiles{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-top:10px}
-.tile{background:#0f2441;border-radius:10px;padding:8px 10px}.tile b{display:block;font-size:19px}.tile span{color:var(--mut);font-size:11px}
-.reason{margin:10px 0 8px;color:#cfe0f1;font-size:14px;min-height:40px}
-button:disabled{opacity:.4;cursor:not-allowed}
-button{background:#1b6fd1;color:var(--txt);border:0;border-radius:10px;padding:9px 14px;font-size:14px;cursor:pointer}
-.row2{display:grid;grid-template-columns:1fr 1fr;gap:18px}@media(max-width:900px){.row2{grid-template-columns:1fr}}
-svg{width:100%;height:150px;display:block}
-.bars{display:flex;align-items:flex-end;gap:10px;height:130px}.col{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;height:100%;position:relative}
-.ghost{position:absolute;bottom:20px;width:100%;border:1px dashed #6f8db1;border-radius:4px}.now{position:relative;width:100%;background:var(--amb);border-radius:4px}.col small{color:var(--mut);margin-top:4px;font-size:11px;text-align:center}
-.log{max-height:150px;overflow:auto;font-size:13px;color:#cfe0f1}.log div{padding:3px 0;border-bottom:1px solid #1a3558}.log i{color:var(--mut);font-style:normal;margin-right:8px}
-.note{color:var(--mut);font-size:12px;margin-top:8px}
-.zz{position:absolute;inset:0;display:none;align-items:center;justify-content:center;flex-direction:column;font-size:26px;font-weight:800;color:#cfd8ff;text-shadow:0 2px 8px #000;background:rgba(10,22,38,.5)}.zz small{font-size:13px;font-weight:500;color:#aab8d8;margin-top:4px;text-align:center;padding:0 16px}
-.pw{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:10px}.pw .big b{font-size:24px}
-.demo button{background:#0f2441;border:1px solid var(--line);margin:4px 6px 4px 0}.demo button:hover{border-color:var(--amb)}.demo button.on{background:var(--amb);color:#0b1d33;font-weight:700;border-color:var(--amb)}
-.demo .sel button{padding:8px 18px}.demo .grp{margin:10px 0 4px;color:var(--mut);font-size:12px;text-transform:uppercase;letter-spacing:.06em}
-</style></head><body>
-<header><h1>SolarSentinel</h1><small>Autonomous solar monitoring and cleaning &middot; Team TRUENO</small>
-<div class="live"><span id="clock"></span><span class="dot" id="dot"></span><span id="src">connecting...</span></div></header>
-<main>
- <section class="site" id="site"></section>
- <section class="card" id="pwcard"><h2>Power and water</h2><div class="pw" id="pw"></div><div class="note" id="pwnote"></div></section>
- <section class="panels" id="panels"></section>
- <div class="note">Thermal map: a smooth heat picture built from the temperature sensors under each panel. Colours are relative to that panel, so a single overheating cell stands out. The ringed spot is the hottest point. <b id="mlsrc"></b></div>
- <div class="row2">
-  <section class="card"><h2>Total power output</h2><svg id="chart" viewBox="0 0 600 150" preserveAspectRatio="none"></svg><div class="note">Dashed vertical lines mark a completed wash.</div></section>
-  <section class="card"><h2>7-day energy forecast, all panels (kWh)</h2><div class="bars" id="fc"></div><div class="note">Solid = with today's dirt. Dashed = if every panel were clean.</div></section>
- </div>
- <section class="card demo" id="demo"><h2>Demo controls (simulator)</h2>
-  <div class="grp">Choose the panel to affect</div><div class="sel" id="dsel"></div>
-  <div class="grp">Cause trouble on that panel</div>
-  <button data-c="cloud">Passing cloud</button><button data-c="drain">Drain the tank</button><button data-c="dirty">Make dirty now</button><button data-c="bird">Bird dropping</button><button data-c="shade" data-f="shade">Shade</button><button data-c="hotspot" data-f="hotspot">Hotspot</button><button data-c="crack" data-f="crack">Cracked cell</button><button data-c="repair">Repair faults</button>
-  <div class="grp">Whole site</div>
-  <button data-c="storm" data-g="storm">Dust storm (1 h)</button><button data-c="rain_forecast" data-g="forecast_rain">Rain forecast</button><button data-c="rain_now">Start rain now</button><button data-c="timer" data-g="timer">2 h backup timer</button>
-  <div class="grp">Skip ahead (the day and night logic runs the whole way)</div>
-  <button data-c="skip" data-v="17.5">to dusk</button><button data-c="skip" data-v="20">to night</button><button data-c="skip" data-v="7.3">to morning</button><button data-c="skip" data-v="12">to noon</button>
-  <div class="grp">Time scale: <span id="spv"></span></div>
-  <button data-c="speed" data-v="0" data-s="0">Pause</button><button data-c="speed" data-v="1" data-s="1">1x real time</button><button data-c="speed" data-v="10" data-s="10">10x</button><button data-c="speed" data-v="60" data-s="60">60x</button><button data-c="speed" data-v="120" data-s="120">120x</button><button data-c="speed" data-v="300" data-s="300">300x</button><button data-c="speed" data-v="1200" data-s="1200">1200x</button>
-  <div class="note" id="dnote">Waiting for the simulator...</div></section>
- <section class="card"><h2>Activity</h2><div class="log" id="log"></div></section>
+.hero{padding-block:clamp(28px,5vw,56px)}
+.hero h1{font-size:clamp(30px,4.2vw,52px);line-height:1.1;font-weight:800;letter-spacing:-.02em;max-width:22ch;margin:14px 0 10px}
+.hero .lede{font-size:clamp(17px,1.6vw,20px)}
+.sec-h{display:flex;justify-content:space-between;align-items:flex-end;gap:16px 24px;flex-wrap:wrap;margin-bottom:20px}
+.sec-h p{color:var(--ink2);max-width:62ch;margin-top:4px}
+.pnl{border-top:3px solid var(--ink);padding-top:14px;min-width:0}
+.pnl-h{display:flex;justify-content:space-between;align-items:center;gap:12px}
+.pnl .legend{margin-top:2px}
+.why{margin:14px 0;min-height:3em;overflow-wrap:anywhere}
+.pnl .facts{margin-bottom:16px}
+.key{display:flex;gap:20px;flex-wrap:wrap;margin-top:10px;font-size:14px;color:var(--ink2)}
+.key i{display:inline-block;width:18px;height:12px;margin-right:6px;vertical-align:-1px}
+.key .a{background:var(--ink2)}
+.key .b{border:1.5px dashed var(--ink3)}
+.ft{padding-block:28px 48px;border-top:1px solid var(--rule);color:var(--ink3);font-size:14px}
+.err{padding:16px;border:1.5px solid var(--fault);border-radius:var(--r);color:var(--ink);background:var(--fault-bg);max-width:70ch}
+</style>
+</head>
+<body>
+<header class="top"><div class="wrap top-in">
+  <a class="brand" href="./"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="5" fill="#FFC21A" stroke="currentColor" stroke-width="2"/><path d="M12 1.5v3M12 19.5v3M1.5 12h3M19.5 12h3M4.6 4.6l2.1 2.1M17.3 17.3l2.1 2.1M4.6 19.4l2.1-2.1M17.3 6.7l2.1-2.1" stroke="currentColor" stroke-width="2" stroke-linecap="round" fill="none"/></svg>SolarSentinel</a>
+  <div class="top-r">
+    <span class="live"><i class="dot" id="dot"></i><span id="live">Connecting…</span></span>
+    <span class="clock num" id="clock"></span>
+    <button class="btn sm" id="theme" type="button" aria-pressed="false">Dark mode</button>
+  </div>
+</div></header>
+
+<main class="wrap">
+  <section class="hero" aria-live="polite">
+    <span id="h-chip"></span>
+    <h1 id="h-title">Waiting for the panels</h1>
+    <p class="lede" id="h-body">Connecting to the API.</p>
+    <dl class="figs" id="figs"></dl>
+  </section>
+
+  <section class="sec">
+    <div class="sec-h">
+      <div>
+        <h2 class="h2">Your panels</h2>
+        <p>Eight temperature sensors sit under each panel. Blue is cooler than the rest of that panel, red is hotter, and the ringed spot is the hottest point. The sun symbols at the corners are the four light sensors.</p>
+      </div>
+      <button class="btn primary" id="clean-all" type="button">Clean all panels</button>
+    </div>
+    <div class="grid g3" id="panels"><p class="empty" id="panels-wait">Waiting for the panels…</p></div>
+  </section>
+
+  <section class="sec">
+    <p class="note"><b>Works only in daylight and dry weather.</b> At night and in rain the node switches its radio and sensors off and sleeps, so the energy it uses stays small next to what a clean panel gives back. Rainwater fills the tank first. The tap valve is only a back-up.</p>
+  </section>
+
+  <section class="sec">
+    <div class="grid g2">
+      <div>
+        <h2 class="h3">Power from all panels</h2>
+        <p class="muted" style="margin-bottom:12px">Newest on the right. Blue dashed lines mark a finished wash.</p>
+        <div class="chart" id="ch-power"></div>
+      </div>
+      <div>
+        <h2 class="h3">Next 7 days, all panels (kWh a day)</h2>
+        <div class="key"><span><i class="a"></i>With today's dirt</span><span><i class="b"></i>If the panels were clean</span></div>
+        <div class="chart" id="ch-fc" style="margin-top:6px"></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="sec">
+    <div class="grid g3">
+      <div><h2 class="h3" style="margin-bottom:10px">Power and water</h2><dl class="facts" id="f-power"></dl></div>
+      <div><h2 class="h3" style="margin-bottom:10px">Weather</h2><dl class="facts" id="f-wx"></dl></div>
+      <div><h2 class="h3" style="margin-bottom:10px">What the system did</h2><ul class="log" id="log"></ul></div>
+    </div>
+  </section>
+
+  <section class="sec" id="demo-sec">
+    <details class="drawer" id="demo">
+      <summary>Demo controls (simulator)</summary>
+      <div>
+        <p class="hint muted" id="ctl-note" style="margin:12px 0">Waiting for the simulator…</p>
+        <div id="ctl"></div>
+      </div>
+    </details>
+  </section>
 </main>
+<footer><div class="wrap ft" id="foot"></div></footer>
+
+<script src="../../shared/config.js"></script>
+<script src="../../shared/ss.js"></script>
 <script>
-const $=id=>document.getElementById(id), COL={ok:'#2ecc71',dust:'#ffb703',shading:'#6fa8dc',hotspot:'#ff6b4a',fault:'#e63946'};
-const NAME={ok:'healthy',dust:'dusty',shading:'shaded',hotspot:'overheating',fault:'cracked cell'};
-let API=new URLSearchParams(location.search).get('api')||localStorage.getItem('api')||(location.protocol.startsWith('http')&&location.port==='8000'?location.origin:'http://localhost:8000');
-API=API.replace(/\/$/,'');try{localStorage.setItem('api',API)}catch(e){}
-// ---- thermal colour map: blue -> cyan -> green -> yellow -> orange -> red -> white-hot
-const STOPS=[[30,[20,30,110]],[36,[30,130,200]],[41,[40,190,170]],[46,[250,225,60]],[51,[250,140,30]],[56,[225,40,30]],[62,[255,235,220]]];
-function heat(f){f=Math.min(1,Math.max(0,f));const t=30+f*32;for(let k=1;k<STOPS.length;k++){if(t<=STOPS[k][0]){const[a,ca]=STOPS[k-1],[b,cb]=STOPS[k],u=(t-a)/(b-a);return ca.map((c,j)=>c+(cb[j]-c)*u)}}return STOPS[STOPS.length-1][1]}
-const GRAD='linear-gradient(90deg,'+STOPS.map(([t,c])=>`rgb(${c}) ${(t-30)/32*100}%`).join(',')+')';
-const off=document.createElement('canvas');off.width=96;off.height=48;const octx=off.getContext('2d');
-function drawHeat(cv,temps,pulse,corners){
- const R=temps.length,C=temps[0].length,W=cv.width,H=cv.height,ctx=cv.getContext('2d');
- const flat0=temps.flat(),s0=[...flat0].sort((a,b)=>a-b),med0=s0[Math.floor(flat0.length/2)],lo=Math.min(s0[0],med0-5),hi=Math.max(s0[s0.length-1],med0+7),img=octx.createImageData(96,48),sig=0.17;
- for(let y=0;y<48;y++)for(let x=0;x<96;x++){const u=(x+.5)/96,v=(y+.5)/48;let sw=0,st=0;
-  for(let r=0;r<R;r++)for(let c=0;c<C;c++){const dx=u-(c+.5)/C,dy=(v-(r+.5)/R)*.5,w=Math.exp(-(dx*dx+dy*dy)/(2*sig*sig));sw+=w;st+=w*temps[r][c]}
-  const rgb=heat((st/sw-lo)/(hi-lo)*0.8+0.1),i=(y*96+x)*4;img.data[i]=rgb[0];img.data[i+1]=rgb[1];img.data[i+2]=rgb[2];img.data[i+3]=255}
- octx.putImageData(img,0,0);ctx.imageSmoothingEnabled=true;ctx.imageSmoothingQuality='high';ctx.drawImage(off,0,0,W,H);cv.dataset.range=lo.toFixed(1)+'|'+hi.toFixed(1);
- // solar-cell grid lines
- ctx.strokeStyle='rgba(255,255,255,.28)';ctx.lineWidth=2;
- for(let c=1;c<C;c++){ctx.beginPath();ctx.moveTo(W*c/C,0);ctx.lineTo(W*c/C,H);ctx.stroke()}
- for(let r=1;r<R;r++){ctx.beginPath();ctx.moveTo(0,H*r/R);ctx.lineTo(W,H*r/R);ctx.stroke()}
- // four corner light sensors: dim or uneven light means shade or cloud, not dirt
- if(corners&&corners.length===4){const m=corners.reduce((a,b)=>a+b,0)/4,uneven=(Math.max(...corners)-Math.min(...corners))/Math.max(m,1)>.25,pos=[[0,0],[1,0],[0,1],[1,1]];
-  ctx.font=`bold ${Math.round(H/16)}px system-ui`;
-  corners.forEach((l,k)=>{const x=pos[k][0]?W-H/9:H/9,y=pos[k][1]?H-H/14:H/14;ctx.fillStyle=uneven?'#ff6b4a':'#ffd166';ctx.beginPath();ctx.arc(x,y,H/32,0,7);ctx.fill();
-   ctx.fillStyle='#fff';ctx.shadowColor='#000';ctx.shadowBlur=4;ctx.textAlign=pos[k][0]?'right':'left';ctx.fillText(Math.round(l/1000)+'k',pos[k][0]?x-H/26:x+H/26,y);ctx.shadowBlur=0});ctx.textAlign='center'}
- // sensor dots + readings, hottest point ringed
- const flat=temps.flat(),sorted=[...flat].sort((a,b)=>a-b),med=sorted[Math.floor(flat.length/2)],mx=Math.max(...flat);
- ctx.font=`bold ${Math.round(H/11)}px system-ui`;ctx.textAlign='center';ctx.textBaseline='middle';
- for(let r=0;r<R;r++)for(let c=0;c<C;c++){const x=W*(c+.5)/C,y=H*(r+.5)/R,hot=temps[r][c]===mx&&mx-med>4;
-  ctx.fillStyle='rgba(0,0,0,.45)';ctx.beginPath();ctx.arc(x,y-H/16,H/42,0,7);ctx.fill();
-  ctx.fillStyle='#fff';ctx.shadowColor='#000';ctx.shadowBlur=4;ctx.fillText(temps[r][c].toFixed(1)+'°',x,y+H/16);ctx.shadowBlur=0;
-  if(hot){ctx.strokeStyle='#fff';ctx.lineWidth=4;ctx.beginPath();ctx.arc(x,y,H/6+pulse*H/30,0,7);ctx.stroke()}}
-}
-// ---- build / update cards
-const cards={};
-function card(id){if(cards[id])return cards[id];
- const el=document.createElement('section');el.className='card';
- el.innerHTML=`<div class="ph"><b>Panel ${id}</b><span class="pill"></span></div>
- <div class="heat"><canvas width="640" height="320"></canvas><div class="fx water"></div><div class="fx air"></div><div class="zz">Sleeping<small></small></div></div>
- <div class="legend"><span class="lo">-</span><div class="bar"></div><span class="hi">-</span></div>
- <div class="tiles"><div class="tile"><b class="w">-</b><span>power</span></div><div class="tile"><b class="loss">-</b><span>power lost</span></div><div class="tile"><b class="inr">-</b><span>lost per day</span></div><div class="tile"><b class="tank">-</b><span>water tank</span></div></div>
- <div class="reason"></div><button>Clean this panel now</button>`;
- el.querySelector('button').onclick=()=>fetch(API+'/api/clean',{method:'POST',body:JSON.stringify({panel_id:id})});
- el.querySelector('.bar').style.background=GRAD;$('panels').appendChild(el);return cards[id]={el,cv:el.querySelector('canvas'),pill:el.querySelector('.pill'),w:el.querySelector('.fx.water'),a:el.querySelector('.fx.air'),last:null}}
-let pulse=0;setInterval(()=>{pulse=(Math.sin(Date.now()/300)+1)/2;for(const k in cards){const c=cards[k];if(c.last){drawHeat(c.cv,c.last,pulse,c.corners);const[l,h]=c.cv.dataset.range.split('|');c.el.querySelector('.lo').textContent=l+'\u00b0 cooler';c.el.querySelector('.hi').textContent='hotter '+h+'\u00b0'}}},120);
-function draw(m){
- const P=m.panels;if(!P.length){$('src').textContent='waiting for the panel nodes...';return}
- const awake=P.filter(p=>p.mode!=='sleep'),nSleep=P.length-awake.length,online=awake.every(p=>p.age_s<8);$('dot').style.background=online?(nSleep===P.length?'#8b9bd6':'#2ecc71'):'#e63946';
- $('src').textContent=!online?'a panel is offline':(nSleep===P.length?'all panels asleep (saving power)':awake.length+' panels online'+(nSleep?', '+nSleep+' asleep':''));$('clock').textContent=m.sim?('Site time: '+m.sim.clock):(P[0].reading.sim_clock?('Site time: '+P[0].reading.sim_clock):'');
- $('mlsrc').textContent='Decisions by: '+m.ml+(m.ml_connected?' (ML program connected)':'');
- const healthy=P.filter(p=>p.decision.state==='ok').length,w=m.weather;
- $('site').innerHTML=`<div class="big"><b>${m.site.power_w.toFixed(0)} W</b><span>total power now</span></div><div class="big"><b>${healthy} / ${P.length}</b><span>panels healthy</span></div>
- <div class="big"><b>Rs ${m.site.loss_inr_per_day}</b><span>lost per day to dirt and faults</span></div><div class="big"><b>${w.raining?'Raining':(w.rain_48h?'Rain soon':'No rain')}</b><span>${w.ambient_c==null?'':w.ambient_c+'°C air'}</span></div>`;
- const st=m.site,td=m.sim&&m.sim.today;
- $('pw').innerHTML=`<div class="big"><b>${nSleep===P.length?'asleep':(st.node_mw/1000).toFixed(2)+' W'}</b><span>what the node itself draws</span></div>
-  <div class="big"><b>${st.node_wh.toFixed(2)} Wh</b><span>node energy since power-on</span></div>
-  <div class="big"><b>${st.tap_l} L</b><span>tap water used${st.tap_open?' (valve open now)':''}</span></div>
-  <div class="big"><b>${st.spray_l} L</b><span>water sprayed on the panels</span></div>`+(td?`<div class="big"><b>${td.recovered_wh.toFixed(1)} Wh</b><span>recovered by cleaning today</span></div><div class="big"><b>${td.node_wh.toFixed(2)} Wh</b><span>node used today (${td.always_on_wh.toFixed(2)} Wh if it never slept)</span></div>`:'');
- $('pwnote').textContent='The node works in daylight only. At night, and while it rains, the radio and sensors switch off and it sleeps, so it never uses more energy than cleaning gives back. Rainwater fills the tank first; the tap valve opens only when the tank runs low (and not at all if rain is forecast, unless the tank is nearly empty).'+(td?' Today figures come from the simulator.':'');
- for(const p of P){const c=card(p.id),r=p.reading,d=p.decision;c.last=r.temps_c;c.corners=r.ldr_corners_lux;
-  const sl=p.mode==='sleep';c.pill.textContent=sl?'asleep':(r.clean_state===1?'washing':r.clean_state===2?'drying':NAME[d.state]);c.pill.style.background=sl?'#8b9bd6':(r.clean_state?'#4fc3f7':COL[d.state]);
-  const zz=c.el.querySelector('.zz');zz.style.display=sl?'flex':'none';zz.querySelector('small').textContent=sl?(p.sleep&&p.sleep.reason==='rain'?'raining: nothing to do, the rain is cleaning the panel':'dark: saving power until the sun is up'):'';c.el.querySelector('button').disabled=sl;
-  c.w.style.opacity=r.clean_state===1?1:0;c.a.style.opacity=r.clean_state===2?1:0;
-  const q=c.el.querySelector.bind(c.el);q('.w').textContent=(r.voltage_v*r.current_a).toFixed(0)+' W';q('.loss').textContent=d.efficiency_loss_pct+'%';
-  q('.inr').textContent='Rs '+d.loss_inr_per_day;q('.tank').textContent=(r.tank_level_pct<0?'n/a':r.tank_level_pct+'%')+(r.tap_open?' + tap':'');q('.reason').textContent=sl?'Asleep to save power. It wakes every 20 minutes just to look at the sun and the rain sensor, and starts work again when it is day and dry. Last reading: '+d.reason:d.reason}
- const mxk=Math.max(...m.site.forecast_clean_kwh_7d)*1.1,days=['Today','+1','+2','+3','+4','+5','+6'];
- $('fc').innerHTML=m.site.forecast_kwh_7d.map((k,n)=>{const c=m.site.forecast_clean_kwh_7d[n];return `<div class="col"><div class="ghost" style="height:${c/mxk*100}px"></div><div class="now" style="height:${k/mxk*100}px"></div><small>${days[n]}<br>${k}</small></div>`}).join('');
- const h=m.site.history,top=Math.max(120,...h.map(x=>x.p))*1.1,W=600,Hh=150,n=Math.max(h.length-1,1);
- $('chart').innerHTML=`<polyline points="${h.map((x,k)=>`${k/n*W},${Hh-x.p/top*Hh}`).join(' ')}" fill="none" stroke="#ffb703" stroke-width="3"/>`+h.map((x,k)=>x.c?`<line x1="${k/n*W}" x2="${k/n*W}" y1="0" y2="${Hh}" stroke="#4fc3f7" stroke-dasharray="5 4"/>`:'').join('');
- $('log').innerHTML=m.log.slice().reverse().map(l=>`<div><i>${l.t}</i>${l.msg}</div>`).join('');
-}
-// ---- demo controls: sent to the API, relayed to the simulator
-const demo=new URLSearchParams(location.search).get('demo')!=='0';$('demo').style.display=demo?'':'none';
-let dsel=0;const send=(cmd,extra)=>fetch(API+'/api/sim',{method:'POST',body:JSON.stringify({cmd,panel:dsel,...extra})});
-$('demo').onclick=e=>{const b=e.target.closest('button');if(!b)return;if(b.dataset.p!==undefined){dsel=+b.dataset.p;drawDemo(lastSim)}else if(b.dataset.c)send(b.dataset.c,b.dataset.v!==undefined?{value:+b.dataset.v}:{})};
-let lastSim=null;
-function drawDemo(S){lastSim=S;if(!demo)return;
- if(!S){$('dnote').textContent='Simulator not connected.';return}
- $('dsel').innerHTML=S.panels.map((p,i)=>`<button data-p="${i}" class="${i===dsel?'on':''}">${p.id}</button>`).join('');
- const f=S.panels[dsel].faults;
- document.querySelectorAll('#demo [data-f]').forEach(b=>b.classList.toggle('on',!!f[b.dataset.f]));
- document.querySelectorAll('#demo [data-g]').forEach(b=>b.classList.toggle('on',!!S[b.dataset.g]));
- $('spv').textContent=S.speed===0?'paused':`${S.speed}x. 1 real second = ${S.speed>=60?(S.speed/60).toFixed(1)+' simulated minutes':S.speed+' simulated seconds'}, one simulated day = ${(86400/S.speed/60).toFixed(1)} real minutes`;
- document.querySelectorAll('#demo [data-s]').forEach(b=>b.classList.toggle('on',+b.dataset.s===S.speed));$('dnote').textContent=`Simulated site clock ${S.clock}. Sun ${S.sun_wm2} W/m2. Dust on ${S.panels[dsel].id}: ${S.panels[dsel].soil_pct}%.`}
-function connect(){const es=new EventSource(API+'/events');es.onmessage=e=>{const m=JSON.parse(e.data);draw(m);drawDemo(m.sim)};
- es.onerror=()=>{$('src').textContent='cannot reach API at '+API;$('dot').style.background='#e63946'}}
-connect();
-</script></body></html>
+(function () {
+  const $ = (id) => document.getElementById(id), nf = SS.fmt.n;
+  SS.theme($('theme'));
+  const demo = SS.query.get('demo');
+  if (demo === '0') $('demo-sec').remove(); else if (demo === 'open') $('demo').open = true;
+
+  const cards = {}, CHIP = { ok: 'All healthy', dust: 'Needs washing', shading: 'Shade', fault: 'Needs attention', washing: 'Washing', asleep: 'Asleep' };
+  let last = null, feedState = 'connecting', flash = null;
+
+  function press(btn, id) {
+    SS.post('/api/clean', id ? { panel_id: id } : {});
+    const was = btn.dataset.label || (btn.dataset.label = btn.textContent);
+    btn.textContent = 'Wash requested'; clearTimeout(flash); flash = setTimeout(() => { btn.textContent = was; }, 2000);
+  }
+  $('clean-all').onclick = (e) => press(e.currentTarget);
+
+  function makeCard(id) {
+    const el = SS.html(`<article class="pnl"><header class="pnl-h"><h3 class="h3">${SS.esc(id)}</h3><span data-k="state"></span></header>
+      <div class="pv"><div class="pv-frame"><canvas></canvas><div class="fx water"></div><div class="fx air"></div><span class="pv-tag" hidden>Asleep</span></div>
+        <span class="ldr tl">${SS.sun}<b></b></span><span class="ldr tr">${SS.sun}<b></b></span><span class="ldr bl">${SS.sun}<b></b></span><span class="ldr br">${SS.sun}<b></b></span></div>
+      <div class="legend" data-k="legend"></div><p class="why" data-k="why"></p>
+      <dl class="facts"><div><dt>Output</dt><dd data-k="out"></dd></div><div><dt>Below expected output</dt><dd data-k="loss"></dd></div>
+        <div><dt>Costs you per day</dt><dd data-k="inr"></dd></div><div><dt>Water tank</dt><dd data-k="tank"></dd></div></dl>
+      <button class="btn" type="button">Clean this panel</button></article>`);
+    const k = (n) => el.querySelector(`[data-k=${n}]`);
+    el.querySelector('.fx.water').innerHTML = Array.from({ length: 18 }, (_, i) => `<i style="left:${(i * 5.7 + 3) % 96}%;--d:${-(i * 0.17).toFixed(2)}s"></i>`).join('');
+    el.querySelector('.fx.air').innerHTML = Array.from({ length: 8 }, (_, i) => `<i style="top:${8 + i * 11}%;--d:${-(i * 0.09).toFixed(2)}s"></i>`).join('');
+    const c = cards[id] = { el, k, pv: el.querySelector('.pv'), tag: el.querySelector('.pv-tag'), ldr: [...el.querySelectorAll('.ldr b')], hm: SS.heat.mount(el.querySelector('canvas')),
+      water: el.querySelector('.fx.water'), air: el.querySelector('.fx.air'), btn: el.querySelector('button') };
+    c.btn.onclick = () => press(c.btn, id);
+    $('panels').appendChild(el);
+    return c;
+  }
+
+  function updatePanel(p) {
+    const c = cards[p.id] || makeCard(p.id), r = p.reading || {}, d = p.decision || {}, st = SS.panelStatus(p), asleep = st === 'asleep';
+    c.k('state').innerHTML = SS.chip(st);
+    if (r.temps_c) SS.heat.legend(c.k('legend'), c.hm.set(r.temps_c));
+    const corners = r.ldr_corners_lux || [], mean = corners.reduce((a, b) => a + b, 0) / (corners.length || 1);
+    const uneven = corners.length === 4 && (Math.max(...corners) - Math.min(...corners)) / Math.max(mean, 1) > 0.25;
+    c.ldr.forEach((b, i) => { b.textContent = corners[i] == null ? '–' : Math.round(corners[i] / 1000) + 'k'; });
+    c.pv.classList.toggle('uneven', uneven); c.pv.classList.toggle('asleep', asleep); c.tag.hidden = !asleep;
+    c.water.classList.toggle('on', r.clean_state === 1); c.air.classList.toggle('on', r.clean_state === 2);
+    c.k('why').textContent = asleep
+      ? (p.sleep && p.sleep.reason === 'rain' ? 'Raining. Nothing to do: the rain is washing the panel.' : 'Dark. Saving power until the sun is up.') + (p.sleep && p.sleep.wake_s ? ` It wakes about every ${Math.round(p.sleep.wake_s / 60)} minutes to look at the sun.` : '')
+      : (uneven && d.state !== 'ok' ? 'The four light sensors disagree, so this is a shadow or cloud, not dirt. ' : '') + (d.reason || 'Waiting for the first decision.');
+    c.k('out').innerHTML = asleep ? 'Asleep' : `${nf((r.voltage_v || 0) * (r.current_a || 0))} W <small class="muted" style="font-weight:400">${nf(r.voltage_v || 0, 1)} V, ${nf(r.current_a || 0, 1)} A</small>`;
+    c.k('loss').textContent = asleep ? '–' : nf(d.efficiency_loss_pct || 0, 1) + '%';
+    c.k('inr').textContent = asleep ? '–' : SS.fmt.inr(d.loss_inr_per_day || 0);
+    c.k('tank').textContent = (r.tank_level_pct < 0 || r.tank_level_pct == null ? 'No sensor' : r.tank_level_pct + '%') + (r.tap_open ? ', refilling from the tap' : '');
+    c.btn.disabled = asleep;
+  }
+
+  function fact(k, v) { return `<div><dt>${k}</dt><dd>${v}</dd></div>`; }
+
+  function draw(m) {
+    last = m;
+    const P = m.panels || [], site = m.site || {}, w = m.weather || {}, td = m.sim && m.sim.today;
+    const nAsleep = P.filter((p) => p.mode === 'sleep').length, nOff = P.filter((p) => p.mode !== 'sleep' && p.age_s > 8).length;
+    $('dot').className = 'dot ' + (!P.length ? '' : nOff ? 'bad' : nAsleep === P.length ? 'sleep' : 'ok');
+    $('live').textContent = !P.length ? 'Waiting for panels' : nOff ? nOff + ' offline' : nAsleep === P.length ? 'All asleep' : P.length - nAsleep + ' of ' + P.length + ' online' + (nAsleep ? ', ' + nAsleep + ' asleep' : '');
+    $('clock').textContent = m.sim ? 'Simulated site, ' + m.sim.clock : (P[0] && P[0].reading && P[0].reading.sim_clock) || new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
+    const h = SS.headline(m);
+    $('h-chip').innerHTML = SS.chip(h.tone, CHIP[h.tone]);
+    $('h-title').textContent = h.title; $('h-body').textContent = h.body;
+    $('figs').innerHTML = [
+      ['Power now', nAsleep === P.length && P.length ? 'Asleep' : `${nf(site.power_w || 0)}<small>W</small>`],
+      ['Lost to dirt and faults', `${SS.fmt.inr(site.loss_inr_per_day || 0)}<small>a day</small>`],
+    ].concat(td ? [['Produced today (simulated)', `${nf(td.yield_wh / 1000, 1)}<small>kWh</small>`]] : [])
+     .concat([['Rain in the next 48 hours', w.raining ? 'Raining now' : w.rain_48h ? 'Expected' : 'None']])
+     .map(([k, v]) => `<div><dt>${k}</dt><dd>${v}</dd></div>`).join('');
+
+    if (P.length) { const wait = $('panels-wait'); if (wait) wait.remove(); }
+    P.forEach(updatePanel);
+    $('clean-all').disabled = !P.length || nAsleep === P.length;
+
+    $('f-power').innerHTML = fact('What the node itself draws', nAsleep === P.length && P.length ? 'asleep, about 1 mW' : SS.fmt.mw(site.node_mw || 0)) +
+      fact('Node energy since power-on', nf(site.node_wh || 0, 2) + ' Wh') +
+      (td ? fact('Node energy today', `${nf(td.node_wh, 1)} Wh <span class="muted" style="font-weight:400">(${nf(td.always_on_wh, 1)} Wh if it never slept)</span>`) : '') +
+      fact('Tap water used', nf(site.tap_l || 0, 1) + ' L' + (site.tap_open ? ', valve open now' : '')) +
+      fact('Water sprayed on the panels', nf(site.spray_l || 0, 1) + ' L') +
+      (td ? fact('Energy recovered by washing today', nf(td.recovered_wh, 0) + ' Wh <span class="muted" style="font-weight:400">(simulated)</span>') : '');
+    $('f-wx').innerHTML = fact('Air temperature', w.ambient_c == null ? '–' : nf(w.ambient_c, 1) + ' °C') + fact('Right now', w.raining ? 'Raining' : 'Dry') +
+      fact('Rain in the next 48 hours', w.rain_48h ? 'Expected' : 'None expected') + fact('Tap water valve', site.tap_open ? 'Open, refilling the tank' : 'Closed');
+    $('log').innerHTML = (m.log || []).slice(-12).reverse().map((l) => `<li><time>${l.ts ? SS.fmt.time(l.ts) : SS.esc(l.t)}</time><span>${SS.esc(l.msg)}</span></li>`).join('') || '<li><span>Nothing yet.</span></li>';
+    $('foot').textContent = `Decisions by: ${m.ml || 'unknown'}${m.ml_connected ? ' (ML program connected)' : ''}. Money figures use ₹${(m.econ && m.econ.tariff) || 8} per kWh and ₹${(m.econ && m.econ.clean_cost) || 2} per wash.${m.sim ? ' Readings come from the simulator.' : ''}`;
+
+    charts();
+    if (ctl) { if (m.sim) { $('ctl-note').hidden = true; ctl.update(m.sim); } else { $('ctl-note').hidden = false; $('ctl-note').textContent = 'The simulator is not connected, so there is nothing to control.'; } }
+  }
+  function charts() {
+    if (!last || !last.site) return;
+    SS.chart.line($('ch-power'), last.site.history || [], { label: 'Power from all panels over time' });
+    SS.chart.bars($('ch-fc'), last.site.forecast_kwh_7d || [], last.site.forecast_clean_kwh_7d || []);
+  }
+  let rz; window.addEventListener('resize', () => { clearTimeout(rz); rz = setTimeout(charts, 150); });
+
+  const ctl = $('ctl') ? SS.controls($('ctl'), (cmd, extra) => SS.post('/api/sim', Object.assign({ cmd, panel: ctl.sel }, extra))) : null;   // ?demo=0 removes the drawer, and with it the controls
+
+  SS.feed(draw, (s) => {
+    feedState = s;
+    if ((s === 'offline' || s === 'retrying') && !last) {
+      $('live').textContent = 'Cannot reach the API'; $('dot').className = 'dot bad';
+      const w = $('panels-wait'); if (w) w.outerHTML = `<p class="err" id="panels-wait">Cannot reach the API at <b>${SS.esc(SS.api)}</b>. Start it (python3 2-ml-ai/api/server.py) or open this page with ?api=https://your-api-address.</p>`;
+    }
+  });
+})();
+</script>
+</body>
+</html>

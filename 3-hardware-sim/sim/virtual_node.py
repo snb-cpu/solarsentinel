@@ -10,13 +10,18 @@ constants (divider error, current-sensor zero offset, per-sensor temperature err
 Two deliberate differences: AUTO_CLEAN_MS and the sleep timers run on simulated time (so they are visible in a demo), and the debounce
 before sleeping is counted in simulated seconds, as on a real device reporting once a minute. Valves and the blower run in real time.
 """
-import argparse, json, math, random, re, threading, time, urllib.request
+import argparse, json, math, mimetypes, os, random, re, threading, time, urllib.request
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
+from urllib.parse import unquote, urlsplit
 from world import World, TANK_L, SPRAY_L_S, TAP_L_S
 
 HERE = Path(__file__).parent
 CFG_PATH = HERE.parent / "firmware" / "solarsentinel" / "config.h"
+SHARED = HERE.parent.parent / "shared"                  # fonts, styles and scripts the web page uses
+mimetypes.add_type("font/woff2", ".woff2"); mimetypes.add_type("text/javascript", ".js")
+KEY = os.environ.get("SS_KEY", "")                     # the API's access key, if it has one (--key)
+LAST_ERR = ""                                          # why the last call to the API failed, shown in the console
 
 # What the real parts draw (datasheet typicals), used for the energy bill. Milliwatts at the 12 V battery rail.
 P_ACTIVE_MW = 250.0                 # ESP32 awake in modem sleep, ACS712 + JSN-SR04T + LM35s + FC-37 + relay module logic, buck losses
@@ -180,12 +185,13 @@ class Node:
     def log(self, m):
         self.events.append(f"{time.strftime('%H:%M:%S')}  {m}"); self.events = self.events[-40:]; print(self.pid, m, flush=True)
 
-def http(api, path, body=None):
+def http(api, path, body=None, timeout=6):
+    global LAST_ERR
     try:
         req = urllib.request.Request(api + path, data=json.dumps(body).encode() if body is not None else None,
-                                     headers={"Content-Type": "text/plain"}, method="POST" if body is not None else "GET")
-        with urllib.request.urlopen(req, timeout=2) as r: return json.loads(r.read() or b"{}")
-    except Exception: return None
+                                     headers={"Content-Type": "text/plain", "User-Agent": "SolarSentinel-sim/1.0", **({"X-Key": KEY} if KEY else {})}, method="POST" if body is not None else "GET")
+        with urllib.request.urlopen(req, timeout=timeout) as r: LAST_ERR = ""; return json.loads(r.read() or b"{}")
+    except Exception as e: LAST_ERR = str(e); return None
 
 class Sim:
     def __init__(self, api, speed, n_panels=3):
@@ -194,8 +200,11 @@ class Sim:
         self.act = {"poll": 0.0, "report": 0.0, "weather": 0.0}
         cfg = load_cfg()
         self.worlds = [World(dust_mult=[1.0, 1.4, 0.8][i % 3]) for i in range(n_panels)]   # panels collect dust at different rates
+        for w in self.worlds:                                    # begin with the panels already warm, not at air temperature (a cold start reads as shade)
+            for _ in range(45): w.step(60.0, 0.0, False, False, False)
         self.nodes = [Node(w, cfg, f"P{i + 1}") for i, w in enumerate(self.worlds)]       # each panel has its own ESP32, valves, blower, tank
-        for n in self.nodes: n.on_status = lambda body: http(self.api, "/api/status", body)
+        self.status_q = []                                       # "going to sleep" notices, sent with the next sync
+        for n in self.nodes: n.on_status = self.status_q.append
         self.marks = {}                                                                     # start-of-day ledger snapshots, for "today" numbers
     def weather_feed(self):
         w = self.worlds[0]; g = 1 - 0.7 * w.cloud
@@ -212,8 +221,8 @@ class Sim:
             m = self.marks.get(n.pid)
             if m is None or m["day"] != w.day():
                 L = w.ledger(); self.marks[n.pid] = {"day": w.day(), **L, "node_wh": n.node_wh, "always_on_wh": n.always_on_wh}
-    def run(self):
-        last, t_rep, t_cmd, t_wx, t_sim = time.time(), 0, 0, 0, 0
+    def run(self):                                               # the physics and the ESP32 logic, ten times a second
+        last = time.time()
         while True:
             now = time.time(); real = now - last; last = now
             if self.skip_to is not None:                         # fast-forward with all the normal logic running
@@ -231,25 +240,33 @@ class Sim:
                 else:
                     n.check_wake()
             self.snapshot_marks()
-            if now - t_rep >= 2.0:
-                t_rep = now; self.act["report"] = now
-                results = [http(self.api, "/api/reading", n.reading()) is not None for n in self.nodes if n.mode == "active"]
-                if results: self.link = all(results)
-            if now - t_cmd >= 1.0:
-                t_cmd = now; self.act["poll"] = now
-                for n in self.nodes:
-                    if n.mode != "active": continue
-                    c = http(self.api, f"/api/command?panel={n.pid}")
-                    if c is None: continue
-                    n.tap_hold = bool(c.get("tap_hold"))
-                    if c.get("action") == "clean": n.start_clean(c.get("water_ms", 4000), c.get("air_ms", 8000), c.get("why", "command from API"))
-            if now - t_sim >= 1.0:                                  # demo controls relayed through the API
-                t_sim = now; c = http(self.api, "/api/simcmd")
-                for cmd in (c or {}).get("cmds", []): self.do(cmd)
-                http(self.api, "/api/simstate", self.state())
-            if now - t_wx >= 5.0:
-                t_wx = now; self.act["weather"] = now; http(self.api, "/api/weather", self.weather_feed())
             time.sleep(0.1)
+    def sync_loop(self):                                         # all the talking to the API, one request a second, on its own thread so a slow network never stalls the physics
+        t_rep = t_wx = 0.0
+        while True:
+            t0 = time.time(); rd, wx = t0 - t_rep >= 2.0, t0 - t_wx >= 5.0
+            if rd: t_rep = t0
+            if wx: t_wx = t0
+            try: self.sync(rd, wx)
+            except Exception as e: print("sync error:", e, flush=True)
+            time.sleep(max(0.05, 1.0 - (time.time() - t0)))
+    def sync(self, send_readings, send_weather):
+        """POST /api/sync: readings (every 2 s), sleep notices, weather (every 5 s) and our state, in one request. The reply holds the clean orders and the demo controls."""
+        now = time.time(); self.act["poll"] = now
+        active = [n for n in self.nodes if n.mode == "active"]
+        status = self.status_q[:]; del self.status_q[:len(status)]
+        body = {"readings": [n.reading() for n in active] if send_readings else [], "status": status, "panels": [n.pid for n in active], "simstate": self.state()}
+        if send_readings and active: self.act["report"] = now
+        if send_weather: self.act["weather"] = now; body["weather"] = self.weather_feed()
+        r = http(self.api, "/api/sync", body)
+        self.link = r is not None
+        if r is None: self.status_q[:0] = status; return           # try the sleep notices again next second
+        for n in active:
+            c = (r.get("commands") or {}).get(n.pid)
+            if c is None: continue
+            n.tap_hold = bool(c.get("tap_hold"))
+            if c.get("action") == "clean": n.start_clean(c.get("water_ms", 4000), c.get("air_ms", 8000), c.get("why", "command from API"))
+        for cmd in r.get("simcmds") or []: self.do(cmd)
     def today(self):                                             # this simulated day so far, all panels
         tot = {"node_wh": 0.0, "always_on_wh": 0.0, "recovered_wh": 0.0, "lost_wh": 0.0, "yield_wh": 0.0, "tap_l": 0.0, "rain_l": 0.0, "spray_l": 0.0}
         for w, n in zip(self.worlds, self.nodes):
@@ -262,10 +279,10 @@ class Sim:
     def state(self):
         w0 = self.worlds[0]
         return {"clock": f"Day {w0.day()} {int(w0.hour()):02d}:{int(w0.hour() % 1 * 60):02d}", "speed": self.speed if self.skip_to is None else self.saved_speed, "skipping": self.skip_to is not None,
-                "link": self.link, "api": self.api,
+                "link": self.link, "api": self.api, "link_error": LAST_ERR,
                 "sun_wm2": round(w0.irradiance()), "ambient_c": round(w0.ambient(), 1), "cloud": round(w0.cloud, 2), "raining": w0.raining,
                 "forecast_rain": w0.forecast_rain, "storm": w0.t < w0.storm_until, "timer": self.nodes[0].timer_on, "sel": self.sel,
-                "now": time.time(), "activity": self.act, "today": self.today(),
+                "now": time.time(), "activity": self.act, "ago": {k: round(max(0.0, time.time() - v), 2) for k, v in self.act.items()}, "today": self.today(),
                 "cfg": {"auto_s": self.nodes[0].c["AUTO_CLEAN_MS"] / 1000, "volt_div": self.nodes[0].c["VOLT_DIV"], "zero": self.nodes[0].c["CURR_ZERO_V"], "vpa": self.nodes[0].c["CURR_V_PER_A"],
                         "mvc": self.nodes[0].c["TEMP_MV_PER_C"], "tank_l": TANK_L, "spray_l_s": SPRAY_L_S, "tap_l_s": TAP_L_S,
                         "p_active_mw": P_ACTIVE_MW, "p_sleep_mw": self.nodes[0].c["SLEEP_POWER_MW"]},
@@ -302,23 +319,35 @@ class Sim:
             self.skip_to = float(b.get("value", 6)) % 24
         elif c == "dirty": w.set_dust([random.uniform(0.07, 0.17) for _ in w.dust])
 
-PAGE = (HERE / "console.html").read_text()
-
 def main():
+    global KEY
     ap = argparse.ArgumentParser()
-    ap.add_argument("--api", default="http://localhost:8000"); ap.add_argument("--speed", type=float, default=120)
-    ap.add_argument("--console-port", type=int, default=8100); ap.add_argument("--panels", type=int, default=3); a = ap.parse_args()
+    ap.add_argument("--api", default="http://localhost:8000", help="the API: http://localhost:8000, http://<mac-ip>:8000 or https://<name>.pages.dev"); ap.add_argument("--speed", type=float, default=120)
+    ap.add_argument("--key", default=KEY, help="the API's access key, if it has one (also SS_KEY)")
+    ap.add_argument("--console-port", type=int, default=8100); ap.add_argument("--console-host", default="0.0.0.0", help="127.0.0.1 keeps the hardware view and its buttons private to this machine (use it on a server)"); ap.add_argument("--panels", type=int, default=3); a = ap.parse_args()
+    KEY = a.key
     sim = Sim(a.api.rstrip("/"), a.speed, a.panels)
-    threading.Thread(target=sim.run, daemon=True).start()
     class H(BaseHTTPRequestHandler):
         def log_message(self, *x): pass
+        def send(self, body, ctype, code=200):
+            self.send_response(code); self.send_header("Content-Type", ctype + ("; charset=utf-8" if ctype.startswith("text/") else "")); self.send_header("Cache-Control", "no-store")
+            self.send_header("Content-Length", str(len(body))); self.end_headers(); self.wfile.write(body)
         def do_GET(self):
-            body, ct = (json.dumps(sim.state()).encode(), "application/json") if self.path == "/state" else (PAGE.encode(), "text/html; charset=utf-8")
-            self.send_response(200); self.send_header("Content-Type", ct); self.end_headers(); self.wfile.write(body)
+            path = unquote(urlsplit(self.path).path)
+            if path == "/state": return self.send(json.dumps(sim.state()).encode(), "application/json")
+            if path.startswith("/shared/"):
+                f = (SHARED / path[len("/shared/"):]).resolve()
+                if f.is_file() and SHARED.resolve() in f.parents: return self.send(f.read_bytes(), mimetypes.guess_type(str(f))[0] or "application/octet-stream")
+                return self.send(b"Not found", "text/plain", 404)
+            self.send((HERE / "console.html").read_bytes(), "text/html")      # read on every request, so edits show on refresh
         def do_POST(self):
-            sim.do(json.loads(self.rfile.read(int(self.headers.get("Content-Length", 0))) or b"{}")); self.send_response(200); self.end_headers()
+            sim.do(json.loads(self.rfile.read(int(self.headers.get("Content-Length", 0))) or b"{}")); self.send(b"{}", "application/json")
+    try: httpd = ThreadingHTTPServer((a.console_host, a.console_port), H)      # take the port first, so a second copy stops before it sends anything to the API
+    except OSError: raise SystemExit(f"Port {a.console_port} is already in use, so another simulator is probably running.\nStop it with:  pkill -f virtual_node.py     or run this one on another port with:  --console-port {a.console_port + 1}")
+    threading.Thread(target=sim.run, daemon=True).start()
+    threading.Thread(target=sim.sync_loop, daemon=True).start()
     print(f"Virtual node sending to {a.api}. Hardware view and operator console: http://localhost:{a.console_port}")
-    ThreadingHTTPServer(("0.0.0.0", a.console_port), H).serve_forever()
+    httpd.serve_forever()
 
 if __name__ == "__main__":
     main()

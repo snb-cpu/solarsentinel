@@ -79,3 +79,22 @@ The decision also carries `forecast_kwh_7d` (with current dirt) and `forecast_cl
 }
 ```
 `POST /api/clean` body `{"panel_id":"P2"}` washes one panel, `{}` washes all.
+
+## Added for the cloud version
+Everything above still holds. These are additions, so older pages and the real firmware keep working.
+
+| Who | Call | What |
+|---|---|---|
+| Virtual node -> API | `POST /api/sync` | One request a second instead of the separate calls: `{"readings":[..], "status":[..sleep notices..], "weather":{..}, "simstate":{..}, "panels":["P1","P2"]}` (every key optional). The reply is `{"commands":{"P1":{"action":"clean",...,"tap_hold":false}}, "simcmds":[..demo controls..]}` |
+| ML program -> API | `GET /api/ml/poll?since=<seq>&wait=20` | Long poll. Replies `{"seq":N,"msgs":[{"reading":{..},"weather":{..}}]}` as soon as there are readings newer than `since`, or empty after `wait` seconds. `since=-1` only returns the current `seq` (use it on connect). Replaces `GET /api/ml/stream`, which still works on the Python API |
+| ML program -> API | `POST /api/decision` | The body may now be a **list** of decisions |
+| Any page -> API | `GET /api/state` | The same JSON as one `/events` message, for polling |
+| Machines | header `X-Key` | Only if the API was started with a key (`SS_KEY` or `--key` on the Python API, the `KEY` secret on Cloudflare). It is needed on the machine calls (`/api/sync`, `/api/reading`, `/api/status`, `/api/weather`, `/api/decision`, `/api/simstate`, `/api/command`, `/api/ml/*`, `/api/simcmd`), never on what web pages call |
+| Tests | query `?room=name` | Cloudflare only: a separate hub, so tests never touch the live demo |
+
+New fields:
+- Decision: `trace` is the list of checks the ML program made, in order: `[{"step":"Light","ok":true,"text":"..."}]`. `ok` is true when the check supports a wash, false when it blocks it, null when it is only information. Also `light_spread_pct`, `model_ms`, `model_score_pct`, `diagnosis_stage`.
+- `/events` and `/api/state`: `feed` (one entry each time a panel's verdict or wash decision changes: `ts`, `panel`, `state`, `clean_now`, `loss`, `inr`, `reason`, `source`), `now`, and per panel `ml_age_s` (seconds since the ML program last answered for it, null if never). Each `log` entry also has `ts` (epoch seconds) next to its `t` text.
+- The simulator's state (`sim`) has `ago` (seconds since it last reported, polled and sent weather) and `link_error`.
+
+Run `python3 cloud/contract_test.py <api address>` to check any implementation against all of this.

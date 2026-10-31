@@ -47,7 +47,7 @@ class Node:
         return sum(self.adc_mv(v) for _ in range(16)) / 16000.0
     # ---- sensors, same formulas as the .ino ----
     def read_temp(self, ch):
-        pin_v = (self.w.tcell[ch] + self.t_err[ch]) * 0.010 * (self.c["TEMP_MV_PER_C"] / 10.0)
+        pin_v = (self.w.tback[ch] + self.t_err[ch]) * 0.010 * (self.c["TEMP_MV_PER_C"] / 10.0)
         return self.adc_volts(pin_v) * 1000.0 / self.c["TEMP_MV_PER_C"] + self.c["TEMP_OFFSET_C"][ch]
     def reading(self):
         v_true, i_true = self.w.electrical()
@@ -134,22 +134,22 @@ class Sim:
         return {"clock": f"Day {w0.day()} {int(w0.hour()):02d}:{int(w0.hour() % 1 * 60):02d}", "speed": self.speed, "link": self.link, "api": self.api,
                 "sun_wm2": round(w0.irradiance()), "ambient_c": round(w0.ambient(), 1), "cloud": round(w0.cloud, 2), "raining": w0.raining,
                 "forecast_rain": w0.forecast_rain, "storm": w0.t < w0.storm_until, "timer": self.nodes[0].timer_on, "sel": self.sel,
-                "panels": [{"id": n.pid, "soil_pct": round(sum(w.soil) / len(w.soil) * 100, 1), "tank": round(w.tank), "faults": w.faults, "node_state": n.cs,
-                            "valve": n.valve, "blower": n.blower, "temps": [round(x, 1) for x in w.tcell]} for w, n in zip(self.worlds, self.nodes)],
+                "panels": [{"id": n.pid, "soil_pct": round(w.mean_soil() * 100, 1), "tank": round(w.tank), "faults": w.faults, "node_state": n.cs,
+                            "valve": n.valve, "blower": n.blower, "temps": [round(x, 1) for x in w.tcell], "sensors": [round(x, 1) for x in w.tback]} for w, n in zip(self.worlds, self.nodes)],
                 "events": sorted(sum([[f"{n.pid} {e}" for e in n.events[-6:]] for n in self.nodes], []))[-12:]}
     def do(self, b):
         c, i = b.get("cmd"), int(b.get("panel", self.sel))
         w = self.worlds[i % len(self.worlds)]
         if c == "select": self.sel = i
         elif c == "storm": self.worlds[0].storm_until = self.worlds[0].t + 3600
-        elif c == "bird": w.soil[random.randrange(len(w.soil))] = 0.4
+        elif c == "bird": w.stuck[random.randrange(len(w.stuck))] = 0.5
         elif c in ("crack", "hotspot", "shade"): w.faults[c] = not w.faults[c]
         elif c == "repair": w.faults = {"crack": False, "hotspot": False, "shade": False}
         elif c == "rain_forecast": w0 = self.worlds[0]; w0.forecast_rain = not w0.forecast_rain; w0.rain_at = None
         elif c == "timer":
             for n in self.nodes: n.timer_on = not n.timer_on
-        elif c == "speed": self.speed = max(1, min(3000, float(b.get("value", self.speed))))
-        elif c == "dirty": w.soil = [0.12] * len(w.soil)
+        elif c == "speed": self.speed = max(0.0, min(3000.0, float(b.get("value", self.speed))))
+        elif c == "dirty": w.dust = [random.uniform(0.07, 0.17) for _ in w.dust]
 
 PAGE = """<!doctype html><meta charset=utf-8><title>Sim console</title><style>body{font:15px system-ui;background:#101820;color:#e8eef5;margin:20px}
 button{margin:4px;padding:10px 14px;border-radius:8px;border:1px solid #345;background:#16283c;color:#e8eef5;cursor:pointer}button.on{background:#ffb703;color:#000}
@@ -159,14 +159,14 @@ select{padding:8px;font-size:15px;border-radius:8px}.g{display:grid;grid-templat
 <button onclick="d('storm')">Dust storm (1 h)</button><button onclick="d('bird')">Bird dropping</button><button onclick="d('dirty')">Make dirty now</button>
 <button id=b_shade onclick="d('shade')">Shade</button><button id=b_hotspot onclick="d('hotspot')">Hotspot</button><button id=b_crack onclick="d('crack')">Cracked cell</button>
 <button onclick="d('repair')">Repair faults</button><button id=b_rain onclick="d('rain_forecast')">Rain forecast</button><button id=b_timer onclick="d('timer')">2 h timer</button>
-<br>Speed: <input id=sp type=range min=30 max=1200 value=120 oninput="d('speed',this.value)"> <span id=spv></span> sim-s per real second</div>
+<br>Time: <button onclick="d('speed',0)">Pause</button><button onclick="d('speed',1)">1x real time</button><button onclick="d('speed',10)">10x</button><button onclick="d('speed',60)">60x</button><button onclick="d('speed',120)">120x</button><button onclick="d('speed',300)">300x</button><button onclick="d('speed',1200)">1200x</button> <span id=spv></span></div>
 <div class=c style="margin-top:14px"><h3>Node log</h3><pre id=l></pre></div>
 <script>let S=null;const d=(cmd,value)=>fetch('/do',{method:'POST',body:JSON.stringify({cmd,value,panel:+sel.value})});
 async function t(){S=await (await fetch('/state')).json();
 if(!sel.options.length){S.panels.forEach((p,i)=>sel.add(new Option(p.id,i)));sel.value=S.sel}
 w.textContent=`Clock ${S.clock}\nSun ${S.sun_wm2} W/m2   Ambient ${S.ambient_c} C   Cloud ${S.cloud}\nRaining: ${S.raining}   Rain forecast: ${S.forecast_rain}   Storm: ${S.storm}`;
 n.textContent=`API ${S.api}: ${S.link?'connected':'NOT CONNECTED'}\n`+S.panels.map(p=>`${p.id}  dust ${p.soil_pct}%  tank ${p.tank}%  node ${p.node_state}${p.valve?' VALVE':''}${p.blower?' BLOWER':''}  faults: ${Object.keys(p.faults).filter(k=>p.faults[k]).join(',')||'none'}`).join('\n');
-l.textContent=S.events.join('\n');spv.textContent=S.speed;const f=S.panels[+sel.value].faults;
+l.textContent=S.events.join('\n');spv.textContent=S.speed===0?'paused':`${S.speed}x: 1 real second = ${S.speed>=60?(S.speed/60).toFixed(1)+' sim minutes':S.speed+' sim seconds'}, one day = ${(86400/S.speed/60).toFixed(1)} real minutes`;const f=S.panels[+sel.value].faults;
 for(const k of ['shade','hotspot','crack'])document.getElementById('b_'+k).className=f[k]?'on':'';b_rain.className=S.forecast_rain?'on':'';b_timer.className=S.timer?'on':'';}
 setInterval(t,700);t();</script>"""
 

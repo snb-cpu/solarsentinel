@@ -23,8 +23,10 @@ ARRAY_KW, PEAK_SUN_H, TARIFF_INR, CLEAN_COST_INR = 1.5, 4.8, 8.0, 2.0   # per pa
 ISC_A = 5.5                   # panel current at 100,000 lux, clean. Calibrate on the real rig.
 MIN_LUX = 20000               # below this, analysis is paused (night / heavy cloud)
 CMD_COOLDOWN_S = 30
+SETTLE_S = 25                 # real seconds to let a washed panel cool before judging a hot spot (assumes demo speed of 60x or more)
 
-def builtin_decide(r, rain):
+def builtin_decide(r, rain, ctx=None):
+    ctx = ctx or {}
     t = r["temps_c"]; flat = [x for row in t for x in row]
     med = sorted(flat)[len(flat) // 2]; spread = max(flat) - med
     base = {"panel_id": r["panel_id"], "heatmap": [[round(min(1, max(0, (x - med) / 12)), 2) for x in row] for row in t], "clean_cost_inr": CLEAN_COST_INR}
@@ -34,18 +36,25 @@ def builtin_decide(r, rain):
     loss = max(0.0, (1 - r["current_a"] / exp_i) * 100)
     cols = [statistics.mean(row[c] for row in t) for c in range(len(t[0]))]
     thr = 3 + 3 * min(1, r["ldr_lux"] / 80000)
-    if spread > thr: state = "fault" if loss > 12 else "hotspot"
+    hot = spread > thr
+    if hot and not ctx.get("washed_hot"): state = "dust"                 # first assume dirt (a dropping): wash once and see if it clears
+    elif hot and time.time() < ctx.get("settle_until", 0): state = "dust"   # washed, give the panel time to cool before judging
+    elif hot: state = "fault" if loss > 12 else "hotspot"
     elif min(cols) < statistics.mean(flat) - 2 and loss > 20: state = "shading"
     elif loss > 3: state = "dust"
     else: state = "ok"
     inr = loss / 100 * ARRAY_KW * PEAK_SUN_H * TARIFF_INR
+    if state == "dust" and hot:
+        go = not ctx.get("washed_hot")
+        why = "Local hot patch, probably a bird dropping or dirt. Washing first to find out." if go else "Washed. Waiting for the panel to cool, then checking if the hot spot is gone."
+        return {**base, "state": state, "efficiency_loss_pct": round(loss, 1), "clean_now": go, "reason": why, "loss_inr_per_day": round(inr, 1), "hot": True}
     if state in ("fault", "hotspot"): go, why = False, "A cell is overheating and washing will not fix it. No water used. Send a technician."
     elif state == "shading": go, why = False, "Part of the panel is in shade, not dirt. Washing will not help."
     elif state == "ok": go, why = False, "Panel is clean and producing as expected."
     elif rain: go, why = False, "Dust detected, but rain is forecast within 48 h. Letting the rain clean it."
     elif inr > CLEAN_COST_INR: go, why = True, f"Dust is costing Rs {inr:.0f}/day, more than the Rs {CLEAN_COST_INR:.0f} wash. Cleaning now."
     else: go, why = False, "Dust loss is still smaller than the cost of a wash."
-    return {**base, "state": state, "efficiency_loss_pct": round(loss, 1), "clean_now": go, "reason": why, "loss_inr_per_day": round(inr, 1)}
+    return {**base, "state": state, "efficiency_loss_pct": round(loss, 1), "clean_now": go, "reason": why, "loss_inr_per_day": round(inr, 1), "hot": hot}
 
 class App:
     def __init__(self):
@@ -63,14 +72,14 @@ class App:
         with self.lock:
             pid = r.get("panel_id", "P1"); r["ts"] = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
             if pid not in self.p:
-                self.p[pid] = {"reading": None, "decision": None, "rx": 0.0, "history": [], "pending": None, "last_cmd": 0.0, "prev_cs": 0}
+                self.p[pid] = {"washed_hot": False, "settle_until": 0.0, "reading": None, "decision": None, "rx": 0.0, "history": [], "pending": None, "last_cmd": 0.0, "prev_cs": 0}
                 self.say(f"{pid}: node connected.")
             st = self.p[pid]; st["rx"] = time.time()
             d = None
             if ml_decide:
                 try: d = ml_decide(r, self.weather)
                 except Exception: d = None
-            d = d if d and "state" in d else builtin_decide(r, self.weather["rain_48h"])
+            d = d if d and "state" in d else builtin_decide(r, self.weather["rain_48h"], st)
             f, loss = self.weather["day_factor"], d["efficiency_loss_pct"]
             d["forecast_clean_kwh_7d"] = [round(ARRAY_KW * PEAK_SUN_H * x, 2) for x in f]
             d["forecast_kwh_7d"] = [round(c * (1 - loss / 100), 2) for c in d["forecast_clean_kwh_7d"]]
@@ -78,7 +87,11 @@ class App:
             if d["clean_now"] and cs == 0 and not st["pending"] and time.time() - st["last_cmd"] > CMD_COOLDOWN_S:
                 self.queue_clean(pid, "AI decision: " + d["reason"])
             done = st["prev_cs"] == 2 and cs == 0
-            if done: self.say(f"{pid}: cleaning finished."); self.washed = True
+            if done:
+                self.say(f"{pid}: cleaning finished."); self.washed = True
+                if st.get("was_hot"): st["washed_hot"], st["settle_until"] = True, time.time() + SETTLE_S
+            st["was_hot"] = bool(d.get("hot"))
+            if not d.get("hot") and time.time() > st["settle_until"]: st["washed_hot"] = False
             if cs != st["prev_cs"] and cs == 1: self.say(f"{pid}: water flush")
             if cs != st["prev_cs"] and cs == 2: self.say(f"{pid}: air dry")
             st["prev_cs"] = cs; st["reading"], st["decision"] = r, d

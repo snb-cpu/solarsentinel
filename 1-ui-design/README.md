@@ -2,6 +2,8 @@
 
 Canva designs plus the customer web app (`webapp/`). Branch: `ui/shashank`.
 
+**Start here: [PROMPT.md](PROMPT.md)** has the exact Gemini prompts. Upload `solarsentinel-ui-brief.zip` to Gemini and paste them.
+
 ## Laptop C (you) in the live demo
 `webapp/index.html` is a working customer dashboard (Sanjay's reference). It connects to the API on Pratham's laptop and shows live data.
 ```

@@ -151,7 +151,7 @@ function render(){if(!S)return;const P=S.panels[sel],N=P.node,now=S.now;
  pinEl.GPIO16.setAttribute('fill',v?'#2ecc71':'#1d5470');pinEl.GPIO17.setAttribute('fill',b?'#2ecc71':'#1d5470');
  const h=Math.round(1.86*N.tank);$('water').setAttribute('height',h);$('water').setAttribute('y',476-h);$('tankpct').textContent=N.tank+'%';
  // pins blinking while it samples (just after a report)
- const rec=now-S.activity.report<.8;['GPIO34','GPIO35','GPIO32','GPIO36','25','26','27'].forEach(g=>pinEl[g].setAttribute('fill',rec?'#ffb703':'#1d5470'));['w1','w2'].forEach(id=>$(id).classList.toggle('act',rec));
+ const rec=now-S.activity.report<.8;['GPIO34','GPIO35','GPIO32','GPIO36','GPIO25','GPIO26','GPIO27'].forEach(g=>pinEl[g].setAttribute('fill',rec?'#ffb703':'#1d5470'));['w1','w2'].forEach(id=>$(id).classList.toggle('act',rec));
  $('wifi').setAttribute('opacity',rec||now-S.activity.poll<.4?1:.25);$('wifit').textContent=rec?'POST reading':(now-S.activity.poll<.4?'GET command':'API link');
  $('vit').textContent=N.last.v+' V   '+N.last.a+' A';$('muxt').textContent='8 temp sensors';
  $('espstate').textContent='state '+N.cs+'   valve '+(v?'ON':'off')+'   blower '+(b?'ON':'off');

@@ -1,4 +1,7 @@
 # 3-hardware-sim  (owner: Sanjay)
 
-ESP32 firmware, wiring notes, and a simulator that publishes fake readings per `../docs/contract.md`.
-Also does the final integration on the Mac. Branch: `hw/sanjay`.
+- `firmware/solarsentinel/` ESP32 firmware (compiles clean). Reads V, I, light and a temperature grid, publishes MQTT readings, runs the water-then-air cleaning cycle on command and on a 2-hour backup timer.
+- `sim/` fake node that emits the same readings, so Pratham and Shashank can build without hardware.
+- `WIRING.md` pins, parts, safety, calibration, flash steps.
+
+Branch: `hw/sanjay`. Final integration on the Mac.

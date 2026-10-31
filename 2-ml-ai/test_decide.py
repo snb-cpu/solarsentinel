@@ -11,10 +11,10 @@ def sample_reading():
         "panel_id": "P1",
         "voltage_v": 18.2,
         "current_a": 4.1,
-        "ldr_lux": 3000,
+        "ldr_lux": 60000,
         "temps_c": [
             [41.2, 41.5, 41.0],
-            [41.3, 47.9, 41.1]
+            [41.3, 42.0, 41.1]
         ],
         "tank_level_pct": 70
     }
@@ -106,6 +106,45 @@ class DecisionTests(unittest.TestCase):
         result = decide(sample_reading())
 
         self.assertFalse(result["clean_now"])
+
+    WEATHER = {"rain_48h": False, "day_factor": [1, 1, 1, 1, 1, 1, 1], "ambient_c": 30.0}
+
+    @patch("decide.predict_panel")
+    def test_weather_feed_needs_no_internet(self, prediction):
+        prediction.return_value = {"state": "dust"}
+        reading = sample_reading(); reading["current_a"] = 3.0          # about 45 % below expected
+        result = decide(reading, weather=self.WEATHER)
+        self.assertTrue(result["clean_now"])
+        self.assertEqual(len(result["forecast_kwh_7d"]), 7)
+        self.assertEqual(len(result["forecast_clean_kwh_7d"]), 7)
+
+    @patch("decide.predict_panel")
+    def test_rain_in_feed_stops_the_wash(self, prediction):
+        prediction.return_value = {"state": "dust"}
+        reading = sample_reading(); reading["current_a"] = 3.0
+        result = decide(reading, weather={**self.WEATHER, "rain_48h": True})
+        self.assertFalse(result["clean_now"])
+
+    @patch("decide.predict_panel")
+    def test_night_pauses_analysis(self, prediction):
+        reading = sample_reading(); reading["ldr_lux"] = 500
+        result = decide(reading, weather=self.WEATHER)
+        self.assertFalse(result["clean_now"])
+        prediction.assert_not_called()
+
+    @patch("decide.predict_panel")
+    def test_hot_patch_is_washed_once_to_find_out(self, prediction):
+        prediction.return_value = {"state": "dust"}
+        reading = sample_reading(); reading["temps_c"] = [[41.2, 41.5, 41.0], [41.3, 52.0, 41.1]]
+        self.assertTrue(decide(reading, weather=self.WEATHER)["clean_now"])
+        after = {"power_before_w": 50, "power_after_w": 50, "temps_before_c": reading["temps_c"], "temps_after_c": reading["temps_c"]}
+        prediction.return_value = {"state": "fault"}
+        self.assertFalse(decide(reading, cleaning_result=after, weather=self.WEATHER)["clean_now"])
+
+    def test_any_grid_size_works(self):
+        from heatmap import make_heatmap
+        self.assertEqual(len(make_heatmap([[40, 41, 42, 41], [40, 50, 41, 41]])[0]), 4)
+        self.assertEqual(len(make_heatmap([[40, 41, 50]])), 1)
 
 
 if __name__ == "__main__":

@@ -1,18 +1,24 @@
 # Live demo on 3 laptops
 
 ```
- Laptop A (Sanjay)            Laptop B (Pratham)              Laptop C (Shashank)
- virtual panel + ESP32  --->  API + ML decision engine  --->  customer web app
- sun, weather, dust,    <---  clean commands                  what the customer sees
- faults, rain forecast
+ This Mac (Sanjay)                       Pratham's laptop                    Shashank's laptop / Cloudflare
+ hardware: virtual panels + ESP32s  -->  ML program (ml_worker.py)           customer web app
+ + the final API (hub)              <--  decisions + clean commands          reads the API
+        ^                                 prints every decision in its
+        |  all data and decisions         terminal and POSTs it to the API
+        +--------------------------------------------------------------->  UI
 ```
-All three on the same Wi-Fi (phone hotspot works). Get laptop B's IP: `ipconfig getifaddr en0` (Mac) or `ipconfig` (Windows).
+**The Mac runs two programs:** the hardware (`virtual_node.py`: panels, ESP32 logic, cleaning machine) and the final API (`2-ml-ai/api/server.py`). Everything meets there.
+**Pratham runs the ML program**, which streams readings from the API, decides, shows the output in his terminal and sends it back to the API. If it stops, the API's built-in rules take over.
+**The UI** only talks to the API.
 
-1. **B** `git pull` then `python 2-ml-ai/api/server.py`  (port 8000)
-2. **A** `python3 3-hardware-sim/sim/virtual_node.py --api http://<B-IP>:8000`  (console on A at http://localhost:8100)
-3. **C** `cd 1-ui-design/webapp && python3 -m http.server 8200` then open `http://localhost:8200/?api=http://<B-IP>:8000`
+All on the same Wi-Fi (a phone hotspot works). Get the Mac's IP: `ipconfig getifaddr en0`.
 
-Everything is Python standard library, no installs. If a firewall blocks it, allow Python on port 8000 on laptop B.
+1. **Mac** `python3 2-ml-ai/api/server.py` then `python3 3-hardware-sim/sim/virtual_node.py --api http://localhost:8000`  (hardware view: http://localhost:8100)
+2. **Pratham** `git pull`, then `python ml_worker.py --api http://<MAC-IP>:8000`  (from the `2-ml-ai` folder, with its venv)
+3. **Shashank** `cd 1-ui-design/webapp && python3 -m http.server 8200` then open `http://localhost:8200/?api=http://<MAC-IP>:8000`
+
+The Mac needs no ML libraries. Put it on the internet for the web app: [CLOUDFLARE.md](CLOUDFLARE.md).
 
 ## Demo script (about 3 minutes)
 1. Healthy panel. Customer sees clean heatmap, power, forecast. (C)

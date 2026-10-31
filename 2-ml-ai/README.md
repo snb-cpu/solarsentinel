@@ -1,48 +1,40 @@
 # 2-ml-ai  (owner: Pratham)
 
-Language: **Python 3.11+**. Libraries: numpy, pandas, scikit-learn, lightgbm, requests, paho-mqtt.
-Input and output formats are in `../docs/contract.md`. Match them exactly.
+The brain. Runs on **your laptop (laptop B)**, shows every decision in your terminal, and sends it to the final API (on the Mac, which handles all the hardware).
 
+## Run it
 ```
-pip install -r requirements.txt
-python decide.py data/sample_reading.json     # prints a decision JSON
-python api/server.py                           # the API, runs on YOUR laptop (laptop B)
+python3 -m venv venv && source venv/bin/activate        # Windows: venv\Scripts\activate
+pip install -r requirements.txt                         # Mac also needs: brew install libomp (for lightgbm)
+python ml_worker.py --api http://<IP-OF-THE-MAC>:8000
 ```
+You will see one line per panel per reading: state, power lost, rupees lost per day, WASH NOW, which model decided and how sure it is, and why. `--quiet` prints only changes.
+If you stop it, the API switches to its built-in rules after 8 seconds and switches back when you restart.
 
-## What to build (in this order)
+## How a decision is made (`decide.py`)
+1. `classify.py` RandomForest, two models: **before-wash** and **after-wash**. The after-wash model sees what the wash changed (power recovered, temperature dropped, hot spot left) and is what separates dirt from a real fault.
+2. `heatmap.py` heat of each cell above the median (any grid size).
+3. `forecast.py` LightGBM 7-day energy forecast, with today's dirt and as if clean.
+4. Weather comes from the feed the Mac sends with every reading (no internet needed). `weather.py` (Open-Meteo) is only the fallback when no feed is given.
+5. Rules: fault or hotspot never gets water; shading never gets water; dust gets a wash only if no rain is forecast and the money lost per day is more than the Rs 2 wash; a hot patch with dirt-like signs is washed once to find out; low tank defers the wash.
+6. `ml_worker.py` remembers the reading before a wash, waits for the panel to cool (15 simulated minutes), then asks the after-wash model.
 
-1. `data/make_synthetic.py`  Generate fake readings, since no hardware exists yet. Make 5 kinds, label each:
-   `ok`, `dust` (whole grid warms evenly, power drops 5-15%), `shading` (one side cooler, sharp power drop),
-   `hotspot` (one cell 6-15 C above the rest), `fault` (one cell stays hot all day and the power never recovers after a wash).
-   Save thousands of rows to `data/synthetic.csv`.
-2. `heatmap.py`  `make_heatmap(temps_c) -> 2D list in 0..1`. Use each cell's difference from the grid median, normalized.
-3. `classify.py`  Train a RandomForest that outputs `state` (ok/dust/shading/hotspot/fault).
-   Features: grid mean minus ambient, grid std, max minus median, left/right and top/bottom gradient,
-   power loss vs expected (expected power comes from `ldr_lux`). Save the model to `model.pkl`. Print a confusion matrix.
-   Key point to show judges: dust vs `fault` is told apart by whether the pattern is even and goes away after cleaning.
-4. `weather.py`  `rain_expected(lat, lon, hours=48) -> bool`. Use the free Open-Meteo API, no key needed
-   (`https://api.open-meteo.com/v1/forecast`, ask for `precipitation_probability`, `shortwave_radiation`, `temperature_2m`). Cache the result, never call more than once an hour.
-5. `forecast.py`  LightGBM regressor for daily kWh over 7 days. Inputs: forecast irradiance, temperature, current soiling loss.
-   Train on synthetic data for now. Output feeds `forecast_kwh_7d`.
-6. `decide.py`  `decide(reading, weather) -> decision dict` (see contract). `weather` is `{"rain_48h": bool, "day_factor": [7 floats], "ambient_c": float, "raining": bool}`. Rule order:
-   - state `fault` or `hotspot`: `clean_now=false`, reason says manual repair.
-   - state `dust` and rain expected in 48h: `clean_now=false`, reason says rain will clean it.
-   - state `dust` and `loss_inr_per_day` greater than `clean_cost_inr`: `clean_now=true`.
-   - else `clean_now=false`.
-   Use 8 INR per kWh for the money maths, and make it a constant at the top.
-7. `api/server.py`  ALREADY WORKS (Sanjay wrote a reference with simple rules). It receives readings from the node, calls your `decide`, sends clean commands back, and streams to the UI. Your job is to make `decide.py` real so the server picks it up automatically (it falls back to the built-in rules if your import fails). Keep the HTTP endpoints as they are.
-8. `test_decide.py`  A few asserts for the rules in step 6.
-
-## Rules for you
-- Push only inside this folder, on your branch `ml/pratham`.
-- Commit `model.pkl` and `data/synthetic.csv` only if each is under 20 MB.
-- Do not change `../docs/contract.md` without telling Sanjay.
-- Keep the demo number honest: report accuracy on synthetic data as synthetic. Real data comes from Sanjay's rig later.
-
-## Laptop B (you) in the live demo
-Laptop A (Sanjay) runs a virtual panel + ESP32 and posts readings to you. Laptop C (Shashank) shows the customer UI from your stream.
+## Training data (important)
+`data/make_physics.py` makes the training data from the **physics simulator** (3-hardware-sim/sim/world.py), the same one the demo runs, with real sensor noise. Re-make and retrain:
 ```
-python api/server.py            # prints your IP; give it to Sanjay and Shashank
+python data/make_physics.py 4000     # about 3 minutes
+python classify.py                   # writes model.pkl, prints accuracy and confusion matrices
+python -m pytest -q                  # 15 tests
 ```
-Open http://localhost:8000 on your own laptop to see the UI working right now. Test with Sanjay's simulator, or:
-`python ../3-hardware-sim/sim/virtual_node.py --api http://localhost:8000` (console at http://localhost:8100).
+Accuracy is about 99.8% on held-out episodes from the same simulator. That number is on simulated data. Real accuracy comes from Sanjay's rig. Say that to the judges.
+Your original hand-made generator is still in `data/make_synthetic.py`; `classify.py` uses `data/physics.csv` when it exists.
+
+## Changes made when merging your branch (so you know)
+- `classify.py` / `heatmap.py`: any grid size (the rig is 2x4, the Wokwi node 1x3); light is in lux (0 to 100,000) not 0-4095; expected power now corrects for panel temperature; model loaded once.
+- `decide.py`: new `weather=` argument, forecasts always computed and scaled to a 1.5 kW string, returns `forecast_clean_kwh_7d`, pauses at night, hot-patch rule.
+- `ml_worker.py` is new. `serve.py` (MQTT) is kept but not used: the system talks HTTP.
+- `api/server.py` is the final API. It does not need your libraries.
+
+## Rules
+- Push only inside this folder, on branch `ml/pratham`.
+- Keep files under 20 MB. Do not change `../docs/contract.md` without telling Sanjay.

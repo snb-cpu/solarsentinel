@@ -5,8 +5,8 @@ import numpy as np
 def make_heatmap(temps_c):
     grid = np.array(temps_c, dtype=float)
 
-    if grid.shape != (2, 3):
-        raise ValueError("Temperature grid must be 2x3")
+    if grid.ndim != 2 or grid.size < 2:
+        raise ValueError("Temperature grid must be 2-D (any size, e.g. 2x4)")
 
     if not np.isfinite(grid).all():
         raise ValueError("Temperature values must be finite")
@@ -18,7 +18,7 @@ def make_heatmap(temps_c):
     maximum = differences.max()
 
     if maximum == 0:
-        return np.zeros((2, 3)).tolist()
+        return np.zeros(grid.shape).tolist()
 
     heatmap = differences / maximum
 

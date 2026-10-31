@@ -40,7 +40,7 @@ svg{width:100%;height:150px;display:block}
 <main>
  <section class="site" id="site"></section>
  <section class="panels" id="panels"></section>
- <div class="note">Thermal map: a smooth heat picture built from the temperature sensors under each panel. Colours are relative to that panel, so a single overheating cell stands out. The ringed spot is the hottest point.</div>
+ <div class="note">Thermal map: a smooth heat picture built from the temperature sensors under each panel. Colours are relative to that panel, so a single overheating cell stands out. The ringed spot is the hottest point. <b id="mlsrc"></b></div>
  <div class="row2">
   <section class="card"><h2>Total power output</h2><svg id="chart" viewBox="0 0 600 150" preserveAspectRatio="none"></svg><div class="note">Dashed vertical lines mark a completed wash.</div></section>
   <section class="card"><h2>7-day energy forecast, all panels (kWh)</h2><div class="bars" id="fc"></div><div class="note">Solid = with today's dirt. Dashed = if every panel were clean.</div></section>
@@ -101,6 +101,7 @@ function draw(m){
  const P=m.panels;if(!P.length){$('src').textContent='waiting for the panel nodes...';return}
  const online=P.every(p=>p.age_s<8);$('dot').style.background=online?'#2ecc71':'#e63946';
  $('src').textContent=online?P.length+' panels online':'a panel is offline';$('clock').textContent=P[0].reading.sim_clock?('Site time: '+P[0].reading.sim_clock):'';
+ $('mlsrc').textContent='Decisions by: '+m.ml+(m.ml_connected?' (ML program connected)':'');
  const healthy=P.filter(p=>p.decision.state==='ok').length,w=m.weather;
  $('site').innerHTML=`<div class="big"><b>${m.site.power_w.toFixed(0)} W</b><span>total power now</span></div><div class="big"><b>${healthy} / ${P.length}</b><span>panels healthy</span></div>
  <div class="big"><b>Rs ${m.site.loss_inr_per_day}</b><span>lost per day to dirt and faults</span></div><div class="big"><b>${w.raining?'Raining':(w.rain_48h?'Rain soon':'No rain')}</b><span>${w.ambient_c==null?'':w.ambient_c+'°C air'}</span></div>`;

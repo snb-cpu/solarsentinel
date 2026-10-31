@@ -1,50 +1,23 @@
-
+"""Sanity checks for the physics-trained classifier. Needs model.pkl (python classify.py)."""
+import unittest
 from classify import predict_panel
 
-normal_reading = {
-    "panel_id": "PANEL_01",
-    "voltage_v": 18.5,
-    "current_a": 4.8,
-    "ldr_lux": 850,
-    "temps_c": [
-        [32, 33, 32],
-        [33, 34, 33]
-    ],
-    "tank_level_pct": 90
-}
+def reading(current, temps, lux=70000):
+    return {"ts": "2026-01-01T00:00:00Z", "panel_id": "P1", "voltage_v": 16.9, "current_a": current, "ldr_lux": lux,
+            "temps_c": temps, "tank_level_pct": 70}
 
-dust_reading = {
-    "panel_id": "PANEL_02",
-    "voltage_v": 17.0,
-    "current_a": 3.9,
-    "ldr_lux": 850,
-    "temps_c": [
-        [35, 36, 35],
-        [36, 37, 36]
-    ],
-    "tank_level_pct": 90
-}
+FLAT = [[47.0, 47.2, 47.1, 47.4], [47.3, 47.1, 47.5, 47.0]]
 
-hotspot_reading = {
-    "panel_id": "PANEL_03",
-    "voltage_v": 17.5,
-    "current_a": 4.2,
-    "ldr_lux": 850,
-    "temps_c": [
-        [34, 35, 34],
-        [35, 55, 36]
-    ],
-    "tank_level_pct": 90
-}
+class ModelTests(unittest.TestCase):
+    def test_clean_panel_is_ok(self):
+        self.assertEqual(predict_panel(reading(3.85, FLAT))["state"], "ok")
 
-test_cases = [
-    normal_reading,
-    dust_reading,
-    hotspot_reading
-]
+    def test_big_power_loss_with_even_heat_is_dust(self):
+        self.assertEqual(predict_panel(reading(3.1, FLAT))["state"], "dust")
 
-for reading in test_cases:
-    result = predict_panel(reading)
+    def test_one_very_hot_cell_without_power_loss_is_a_hotspot(self):
+        hot = [[47.0, 47.2, 47.1, 47.4], [47.3, 61.0, 47.5, 47.0]]
+        self.assertIn(predict_panel(reading(3.85, hot))["state"], ("hotspot", "fault"))
 
-    print("\nPanel ID:", reading["panel_id"])
-    print("Prediction:", result)
+if __name__ == "__main__":
+    unittest.main(verbosity=2)

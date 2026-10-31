@@ -13,13 +13,15 @@ from sklearn.metrics import (
 )
 
 BASE_DIR = Path(__file__).parent
-DATA_FILE = BASE_DIR / "data" / "synthetic.csv"
+PHYSICS_FILE = BASE_DIR / "data" / "physics.csv"      # labelled episodes from the physics simulator (digital twin)
+DATA_FILE = PHYSICS_FILE if PHYSICS_FILE.exists() else BASE_DIR / "data" / "synthetic.csv"
 MODEL_FILE = BASE_DIR / "model.pkl"
+_SAVED = None
 
 CLASSES = ["ok", "dust", "shading", "hotspot", "fault"]
 
-LDR_MAX_ADC = 4095
-MAX_POWER_W = 100.0
+LDR_FULL_SCALE_LUX = 100000.0   # the LDR reading (lux) at full sun
+MAX_POWER_W = 101.75             # panel power at full sun and 25 C (18.5 V x 5.5 A); calibrate on the real rig
 
 BASE_FEATURES = [
     "voltage_v",
@@ -48,8 +50,8 @@ CLEANING_FEATURES = [
 def validate_grid(grid):
     grid = np.asarray(grid, dtype=float)
 
-    if grid.shape != (2, 3):
-        raise ValueError("Temperature grid must be 2x3.")
+    if grid.ndim != 2 or grid.shape[0] < 1 or grid.shape[1] < 2:
+        raise ValueError("Temperature grid must be 2-D with at least 2 columns (any size, e.g. 2x4 or 1x3).")
 
     if not np.isfinite(grid).all():
         raise ValueError("Invalid temperature values.")
@@ -65,22 +67,24 @@ def extract_grid_features(grid):
         "grid_std": float(grid.std()),
         "max_minus_median": float(grid.max() - median),
         "left_right_gradient": float(
-            grid[:, 0].mean() - grid[:, 2].mean()
+            grid[:, 0].mean() - grid[:, -1].mean()
         ),
         "top_bottom_gradient": float(
-            grid[0, :].mean() - grid[1, :].mean()
+            grid[0, :].mean() - grid[-1, :].mean()
         )
     }
 
 
-def estimate_expected_power(ldr):
-    if not np.isfinite(ldr) or not 0 <= ldr <= LDR_MAX_ADC:
-        raise ValueError(
-            "LDR value must be between 0 and 4095. "
-            "Update the calibration if hardware uses another scale."
-        )
+def estimate_expected_power(lux, grid_mean_c=25.0):
+    """Power the panel should make at this light level and temperature (hot silicon loses ~0.35 %/C)."""
+    if not np.isfinite(lux) or lux < 0:
+        raise ValueError("Light reading must be a non-negative number of lux.")
 
-    return MAX_POWER_W * (ldr / LDR_MAX_ADC)
+    return (
+        MAX_POWER_W
+        * min(lux, LDR_FULL_SCALE_LUX) / LDR_FULL_SCALE_LUX
+        * (1 - 0.0035 * (grid_mean_c - 25.0))
+    )
 
 
 def prepare_training_features(df):
@@ -259,7 +263,7 @@ def build_prediction_features(reading, history=None, cleaning_result=None):
         raise ValueError("Voltage must be positive and current non-negative.")
 
     power = voltage * current
-    expected_power = estimate_expected_power(ldr)
+    expected_power = estimate_expected_power(ldr, float(grid.mean()))
 
     if expected_power <= 0:
         raise ValueError("Expected power is zero; check the LDR reading.")
@@ -354,7 +358,10 @@ def predict_panel(reading, history=None, cleaning_result=None):
             "Model not found. Run python classify.py first."
         )
 
-    saved_data = joblib.load(MODEL_FILE)
+    global _SAVED
+    if _SAVED is None:
+        _SAVED = joblib.load(MODEL_FILE)           # load once, not on every reading
+    saved_data = _SAVED
     models = saved_data["models"]
 
     input_data, mode = build_prediction_features(

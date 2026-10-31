@@ -12,17 +12,12 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
 HERE = Path(__file__).parent
-sys.path.insert(0, str(HERE.parent))          # 2-ml-ai/ so `from decide import decide` works
-try:
-    from decide import decide as ml_decide
-except Exception:
-    ml_decide = None
-
 # Money maths, per panel (one node = one 1.5 kW string), shown on the dashboard.
 ARRAY_KW, PEAK_SUN_H, TARIFF_INR, CLEAN_COST_INR = 1.5, 4.8, 8.0, 2.0   # per panel: each node watches a 1.5 kW string
 ISC_A = 5.5                   # panel current at 100,000 lux, clean. Calibrate on the real rig.
 MIN_LUX = 20000               # below this, analysis is paused (night / heavy cloud)
 CMD_COOLDOWN_S = 30
+ML_STALE_S = 8                # if the ML program (Pratham's laptop) has not answered for a panel in this long, fall back to the built-in rules
 SETTLE_S = 25                 # real seconds to let a washed panel cool before judging a hot spot (assumes demo speed of 60x or more)
 
 def builtin_decide(r, rain, ctx=None):
@@ -61,7 +56,8 @@ class App:
         self.p = {}                       # panel_id -> {reading, decision, rx, history, pending, last_cmd, prev_cs}
         self.weather = {"rain_48h": False, "day_factor": [1, .95, .9, 1, 1, .9, 1], "ambient_c": None, "raining": False}
         self.site_hist, self.washed, self.log, self.clients = [], False, [], []
-        self.simq, self.sim = [], None      # demo controls: UI -> API -> simulator, and the simulator's state back to the UI
+        self.simq, self.sim = [], None
+        self.ml_clients = []                # ML programs connected to /api/ml/stream      # demo controls: UI -> API -> simulator, and the simulator's state back to the UI
         self.lock = threading.Lock(); self.say("API started. Waiting for the panel nodes.")
     def say(self, m):
         self.log.append({"t": datetime.now().strftime("%H:%M:%S"), "msg": m}); self.log = self.log[-40:]
@@ -72,45 +68,59 @@ class App:
         with self.lock:
             pid = r.get("panel_id", "P1"); r["ts"] = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
             if pid not in self.p:
-                self.p[pid] = {"washed_hot": False, "settle_until": 0.0, "reading": None, "decision": None, "rx": 0.0, "history": [], "pending": None, "last_cmd": 0.0, "prev_cs": 0}
+                self.p[pid] = {"washed_hot": False, "settle_until": 0.0, "reading": None, "decision": None, "source": "rules", "ml_at": 0.0,
+                               "rx": 0.0, "history": [], "pending": None, "last_cmd": 0.0, "prev_cs": 0}
                 self.say(f"{pid}: node connected.")
-            st = self.p[pid]; st["rx"] = time.time()
-            d = None
-            if ml_decide:
-                try: d = ml_decide(r, self.weather)
-                except Exception: d = None
-            d = d if d and "state" in d else builtin_decide(r, self.weather["rain_48h"], st)
-            f, loss = self.weather["day_factor"], d["efficiency_loss_pct"]
-            d["forecast_clean_kwh_7d"] = [round(ARRAY_KW * PEAK_SUN_H * x, 2) for x in f]
-            d["forecast_kwh_7d"] = [round(c * (1 - loss / 100), 2) for c in d["forecast_clean_kwh_7d"]]
+            st = self.p[pid]; st["rx"] = time.time(); st["reading"] = r
             cs = r.get("clean_state", 0)
-            if d["clean_now"] and cs == 0 and not st["pending"] and time.time() - st["last_cmd"] > CMD_COOLDOWN_S:
-                self.queue_clean(pid, "AI decision: " + d["reason"])
             done = st["prev_cs"] == 2 and cs == 0
             if done:
                 self.say(f"{pid}: cleaning finished."); self.washed = True
                 if st.get("was_hot"): st["washed_hot"], st["settle_until"] = True, time.time() + SETTLE_S
-            st["was_hot"] = bool(d.get("hot"))
-            if not d.get("hot") and time.time() > st["settle_until"]: st["washed_hot"] = False
             if cs != st["prev_cs"] and cs == 1: self.say(f"{pid}: water flush")
             if cs != st["prev_cs"] and cs == 2: self.say(f"{pid}: air dry")
-            st["prev_cs"] = cs; st["reading"], st["decision"] = r, d
+            st["prev_cs"] = cs
             st["history"].append({"p": round(r["voltage_v"] * r["current_a"], 1), "c": done}); st["history"] = st["history"][-90:]
             if pid == min(self.p):                                  # one site-power point per round of readings
                 self.site_hist.append({"p": round(sum((x["history"][-1]["p"] if x["history"] else 0) for x in self.p.values()), 1), "c": self.washed})
                 self.site_hist, self.washed = self.site_hist[-90:], False
+            if self.ml_clients: self.ml_send({"reading": r, "weather": self.weather})       # the ML program decides...
+            if not (self.ml_clients and time.time() - st["ml_at"] < ML_STALE_S):             # ...unless it is offline or silent
+                if st["source"] == "ml": self.say(f"{pid}: ML program not answering, using built-in rules."); st["source"] = "rules"
+                d = builtin_decide(r, self.weather["rain_48h"], st); st["was_hot"] = bool(d.get("hot"))
+                if not d.get("hot") and time.time() > st["settle_until"]: st["washed_hot"] = False
+                self.apply(pid, st, d)
         self.push()
+    def apply(self, pid, st, d):
+        """Common path for a decision from the ML program or the built-in rules."""
+        f, loss = self.weather["day_factor"], d["efficiency_loss_pct"]
+        if len(d.get("forecast_kwh_7d") or []) != 7 or not any(d["forecast_kwh_7d"]):
+            d["forecast_clean_kwh_7d"] = [round(ARRAY_KW * PEAK_SUN_H * x, 2) for x in f]
+            d["forecast_kwh_7d"] = [round(c * (1 - loss / 100), 2) for c in d["forecast_clean_kwh_7d"]]
+        st["decision"] = d
+        if d["clean_now"] and st["prev_cs"] == 0 and not st["pending"] and time.time() - st["last_cmd"] > CMD_COOLDOWN_S:
+            self.queue_clean(pid, "AI decision: " + d["reason"])
+    def on_decision(self, d):                                       # POST /api/decision from the ML program
+        with self.lock:
+            st = self.p.get(d.get("panel_id"))
+            if not st or "state" not in d: return
+            if st["source"] != "ml": self.say(f"{d['panel_id']}: decisions now come from the ML program."); st["source"] = "ml"
+            st["ml_at"] = time.time(); self.apply(d["panel_id"], st, d)
+        self.push()
+    def ml_send(self, msg):
+        data = f"data: {json.dumps(msg)}\n\n".encode()
+        for q in list(self.ml_clients): q.put(data)
     def snapshot(self):
         with self.lock:
             panels = []
             for pid in sorted(self.p):
-                x = self.p[pid]; panels.append({"id": pid, "reading": x["reading"], "decision": x["decision"], "history": x["history"], "age_s": round(time.time() - x["rx"], 1)})
+                x = self.p[pid]; panels.append({"id": pid, "source": x["source"], "reading": x["reading"], "decision": x["decision"], "history": x["history"], "age_s": round(time.time() - x["rx"], 1)})
             ds = [x["decision"] for x in self.p.values() if x["decision"]]
             site = {"power_w": round(sum(x["history"][-1]["p"] for x in self.p.values() if x["history"]), 1),
                     "loss_inr_per_day": round(sum(d["loss_inr_per_day"] for d in ds), 1), "history": self.site_hist,
                     "forecast_kwh_7d": [round(sum(d["forecast_kwh_7d"][i] for d in ds), 1) for i in range(7)] if ds else [],
                     "forecast_clean_kwh_7d": [round(sum(d["forecast_clean_kwh_7d"][i] for d in ds), 1) for i in range(7)] if ds else []}
-            return {"panels": panels, "site": site, "weather": self.weather, "log": self.log, "ml": "ML model" if ml_decide else "rules", "sim": self.sim,
+            return {"panels": panels, "site": site, "weather": self.weather, "log": self.log, "ml": ("ML model" if any(x["source"] == "ml" for x in self.p.values()) else "built-in rules"), "ml_connected": bool(self.ml_clients), "sim": self.sim,
                     "econ": {"panel_kw": ARRAY_KW, "tariff": TARIFF_INR, "clean_cost": CLEAN_COST_INR}}
     def push(self):
         data = f"data: {json.dumps(self.snapshot())}\n\n".encode()
@@ -140,6 +150,14 @@ class H(BaseHTTPRequestHandler):
                 st = app.p.get(pid); c = (st["pending"] or {}) if st else {}
                 if st: st["pending"] = None
             self.reply(json.dumps(c).encode())
+        elif self.path.startswith("/api/ml/stream"):
+            self.send_response(200); self.send_header("Content-Type", "text/event-stream"); self.send_header("Cache-Control", "no-cache"); self.end_headers()
+            q = queue.Queue(); app.ml_clients.append(q); app.say("ML program connected.")
+            try:
+                while True: self.wfile.write(q.get()); self.wfile.flush()
+            except Exception: pass
+            finally:
+                app.ml_clients.remove(q); app.say("ML program disconnected.")
         elif self.path.startswith("/api/simcmd"):
             with app.lock: c, app.simq = app.simq, []
             self.reply(json.dumps({"cmds": c}).encode())
@@ -153,6 +171,7 @@ class H(BaseHTTPRequestHandler):
             with app.lock:
                 if body.get("rain_48h") != app.weather["rain_48h"]: app.say("Weather feed: rain expected within 48 h" if body.get("rain_48h") else "Weather feed: no rain expected")
                 app.weather = body
+        elif self.path == "/api/decision": app.on_decision(body)
         elif self.path == "/api/sim":
             with app.lock: app.simq.append(body)
             app.say(f"Demo control: {body.get('cmd')}" + (f" on panel {int(body.get('panel', 0)) + 1}" if body.get("cmd") in ("bird", "dirty", "shade", "hotspot", "crack", "repair") else ""))
@@ -169,5 +188,5 @@ class H(BaseHTTPRequestHandler):
 if __name__ == "__main__":
     ap = argparse.ArgumentParser(); ap.add_argument("--port", type=int, default=8000); a = ap.parse_args()
     threading.Thread(target=lambda: [(app.push(), time.sleep(1.0)) for _ in iter(int, 1)], daemon=True).start()
-    print(f"API on http://0.0.0.0:{a.port}  decision: {'Pratham decide.py' if ml_decide else 'built-in rules'}")
+    print(f"API on http://0.0.0.0:{a.port}  decisions: ML program if connected (python 2-ml-ai/ml_worker.py --api http://THIS-IP:{a.port}), else built-in rules")
     ThreadingHTTPServer(("0.0.0.0", a.port), H).serve_forever()

@@ -15,6 +15,8 @@ Each person pushes ONLY inside their own folder. No one edits another person's f
 | `3-hardware-sim/` | Sanjay | ESP32 firmware, wiring, sensor + actuator simulation, final integration on the Mac |
 | `docs/` | everyone | `contract.md` = shared data formats (read this first) |
 
+Full problem statement and solution: [docs/README.md](docs/README.md).
+
 Later everything is combined and run on the main Mac.
 
 ## Rules

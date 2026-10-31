@@ -1,0 +1,179 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>SolarSentinel hardware view</title>
+<style>
+:root{--bg:#0b1d33;--card:#12294a;--line:#23406a;--txt:#eaf2fb;--mut:#8fa9c2;--amb:#ffb703;--on:#2ecc71;--water:#4fc3f7}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--txt);font:14px/1.4 -apple-system,Segoe UI,Arial,sans-serif}
+header{display:flex;align-items:center;gap:14px;padding:12px 22px;border-bottom:1px solid var(--line)}header h1{font-size:19px;margin:0}header span{color:var(--mut)}
+.tabs button{margin-right:6px}.right{margin-left:auto;color:var(--mut)}
+main{display:grid;grid-template-columns:minmax(0,1.7fr) minmax(0,1fr);gap:14px;padding:14px 22px}
+@media(max-width:1100px){main{grid-template-columns:1fr}}
+.card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px}
+h3{margin:0 0 10px;font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--mut)}
+button{background:#0f2441;color:var(--txt);border:1px solid var(--line);border-radius:8px;padding:8px 12px;font-size:13px;cursor:pointer;margin:3px 4px 3px 0}
+button:hover{border-color:var(--amb)}button.on{background:var(--amb);color:#0b1d33;border-color:var(--amb);font-weight:700}
+svg{width:100%;height:auto;display:block}
+text{fill:#cfe0f1;font:12px system-ui}.small{font-size:10px;fill:#8fa9c2}.t{fill:#fff;font-weight:700}
+.pipe{stroke:#3a5a86;stroke-width:9;fill:none;stroke-linecap:round;stroke-linejoin:round}
+.flow{stroke:var(--water);stroke-width:5;fill:none;stroke-dasharray:10 10;opacity:0;stroke-linecap:round;stroke-linejoin:round}
+.flow.go{opacity:1;animation:dash .5s linear infinite}@keyframes dash{to{stroke-dashoffset:-20}}
+.drop{stroke:var(--water);stroke-width:3;stroke-linecap:round;opacity:0}
+.spray .drop{animation:fall .8s linear infinite}@keyframes fall{0%{transform:translateY(0);opacity:.95}100%{transform:translateY(250px);opacity:0}}
+.streak{stroke:#fff;stroke-width:3;stroke-linecap:round;opacity:0}
+.blow .streak{animation:blow .55s linear infinite}@keyframes blow{0%{transform:translateX(0);opacity:.8}100%{transform:translateX(-560px);opacity:0}}
+.fan{transform-box:fill-box;transform-origin:center}.spinning .fan{animation:spin .35s linear infinite}@keyframes spin{to{transform:rotate(360deg)}}
+.wire{stroke:#546e8f;stroke-width:2;fill:none}.wire.act{stroke:var(--amb);stroke-width:3;stroke-dasharray:6 5;animation:dash .5s linear infinite}
+.code{font:12px/1.55 ui-monospace,Menlo,monospace;background:#0a1626;border-radius:8px;padding:10px;overflow:auto}
+.code div{padding:1px 8px;border-radius:4px;white-space:pre}.code div.hl{background:#2b4a1f;color:#d7ffc7}.code .cm{color:#6f8db1}
+.fsm{display:flex;align-items:center;gap:8px;margin:10px 0 6px}.st{padding:8px 16px;border-radius:8px;background:#0f2441;border:2px solid var(--line);font-weight:700}
+.st.cur{background:var(--amb);color:#0b1d33;border-color:var(--amb)}.st.cur.w{background:var(--water);border-color:var(--water)}
+.prog{height:10px;background:#0f2441;border-radius:5px;overflow:hidden}.prog i{display:block;height:100%;background:var(--water);width:0}
+table{width:100%;border-collapse:collapse;font-size:12px}td,th{padding:3px 6px;border-bottom:1px solid #1a3558;text-align:left}th{color:var(--mut);font-weight:600}
+pre{white-space:pre-wrap;font-size:12px;margin:0;max-height:150px;overflow:auto}
+.grp{margin:8px 0 2px;color:var(--mut);font-size:11px;text-transform:uppercase;letter-spacing:.06em}
+.dot{display:inline-block;width:10px;height:10px;border-radius:50%;background:#555;margin-right:6px}.dot.on{background:var(--on)}
+</style></head><body>
+<header><h1>Laptop A &middot; virtual panel + ESP32</h1><span id="clock"></span><div class="tabs" id="tabs"></div><div class="right"><span class="dot" id="ldot"></span><span id="link">connecting...</span></div></header>
+<main>
+ <section class="card"><h3>The machine (live)</h3>
+ <svg viewBox="0 0 1200 700" id="svg">
+  <defs><marker id="ar" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L6,3 L0,6 z" fill="#546e8f"/></marker></defs>
+  <!-- tank -->
+  <rect x="40" y="290" width="130" height="190" rx="10" fill="#0a1626" stroke="#3a5a86" stroke-width="3"/>
+  <rect id="water" x="44" y="476" width="122" height="0" fill="#2a8fc9" opacity=".85"/>
+  <text x="105" y="278" text-anchor="middle" class="t">Rainwater tank</text><text id="tankpct" x="105" y="388" text-anchor="middle" class="t" style="font-size:20px">-</text>
+  <text x="105" y="505" text-anchor="middle" class="small">rain fills it</text>
+  <!-- pipes -->
+  <path class="pipe" d="M170 450 H238"/><path class="pipe" d="M262 450 H320 V120 H880"/>
+  <path id="flow1" class="flow" d="M170 450 H238"/><path id="flow2" class="flow" d="M262 450 H320 V120 H880"/>
+  <!-- solenoid valve -->
+  <g id="valve"><circle cx="250" cy="450" r="24" fill="#16283c" stroke="#8fa9c2" stroke-width="3" id="valveC"/>
+   <path d="M236 438 L264 462 M264 438 L236 462" stroke="#8fa9c2" stroke-width="4" id="valveX"/></g>
+  <text x="250" y="496" text-anchor="middle" class="t">Solenoid valve</text><text id="valvet" x="250" y="512" text-anchor="middle" class="small">closed</text>
+  <!-- panel -->
+  <rect x="330" y="150" width="560" height="260" rx="8" fill="#0a1626" stroke="#aebfd2" stroke-width="6"/>
+  <g id="cells"></g>
+  <g id="spray" class="spray"></g><g id="air" class="blow"></g>
+  <!-- nozzles -->
+  <g id="nozzles"></g>
+  <text x="610" y="105" text-anchor="middle" class="small">spray pipe along the top edge of the panel</text>
+  <!-- blower -->
+  <g id="blower"><rect x="940" y="250" width="120" height="120" rx="14" fill="#16283c" stroke="#3a5a86" stroke-width="3"/>
+   <g class="fan"><circle cx="1000" cy="310" r="34" fill="none" stroke="#8fa9c2" stroke-width="2"/>
+    <path d="M1000 310 L1000 280 A30 30 0 0 1 1026 295 Z M1000 310 L1026 325 A30 30 0 0 1 1000 340 Z M1000 310 L974 325 A30 30 0 0 1 974 295 Z" fill="#8fa9c2"/></g></g>
+  <path class="pipe" d="M940 310 H900"/><text x="1000" y="392" text-anchor="middle" class="t">Air blower</text><text id="blowt" x="1000" y="408" text-anchor="middle" class="small">off</text>
+  <!-- LDR -->
+  <circle cx="860" cy="175" r="11" fill="#ffd166" stroke="#fff" stroke-width="2"/><text x="860" y="205" text-anchor="middle" class="small">LDR (sunlight)</text>
+  <!-- sensor boxes -->
+  <rect x="440" y="440" width="150" height="50" rx="8" fill="#16283c" stroke="#3a5a86" stroke-width="2"/><text x="515" y="461" text-anchor="middle" class="t">CD4051 mux</text><text id="muxt" x="515" y="478" text-anchor="middle" class="small">8 temp sensors</text>
+  <rect x="620" y="440" width="160" height="50" rx="8" fill="#16283c" stroke="#3a5a86" stroke-width="2"/><text x="700" y="461" text-anchor="middle" class="t">V + I sensors</text><text id="vit" x="700" y="478" text-anchor="middle" class="small">-</text>
+  <path class="wire" d="M515 410 V440"/><path class="wire" d="M700 410 V440"/><path class="wire" d="M860 186 V425 H760 V440"/>
+  <!-- ESP32 -->
+  <rect x="380" y="540" width="420" height="140" rx="10" fill="#0f2f3f" stroke="#4fc3f7" stroke-width="3"/>
+  <text x="590" y="590" text-anchor="middle" class="t" style="font-size:15px">ESP32</text>
+  <text id="espstate" x="590" y="612" text-anchor="middle" class="small">-</text>
+  <g id="pins"></g>
+  <g id="wifi" opacity=".25"><path d="M400 640 q18 -14 36 0 M406 648 q12 -9 24 0" stroke="#fff" stroke-width="3" fill="none"/><circle cx="418" cy="656" r="2.5" fill="#fff"/></g>
+  <text x="450" y="656" class="small" id="wifit">API link</text>
+  <path class="wire" id="w1" d="M515 490 V540"/><path class="wire" id="w2" d="M700 490 V540"/>
+  <!-- relays -->
+  <rect x="880" y="500" width="260" height="150" rx="10" fill="#16283c" stroke="#3a5a86" stroke-width="2"/><text x="1010" y="522" text-anchor="middle" class="t">2-channel relay module</text>
+  <rect x="900" y="540" width="100" height="90" rx="8" fill="#0f2441" stroke="#3a5a86"/><text x="950" y="562" text-anchor="middle" class="small">relay 1 &rarr; valve</text><circle id="led1" cx="950" cy="595" r="10" fill="#333"/>
+  <rect x="1020" y="540" width="100" height="90" rx="8" fill="#0f2441" stroke="#3a5a86"/><text x="1070" y="562" text-anchor="middle" class="small">relay 2 &rarr; blower</text><circle id="led2" cx="1070" cy="595" r="10" fill="#333"/>
+  <path class="wire" id="wr1" d="M800 585 H900"/><path class="wire" id="wr2" d="M800 625 H1020"/>
+  <path class="wire" id="cv" d="M950 540 V525 H250 V474"/><path class="wire" id="cb" d="M1070 540 V525 H1180 V310 H1060"/>
+ </svg></section>
+
+ <div style="display:grid;gap:14px;align-content:start">
+  <section class="card"><h3>ESP32 firmware logic &middot; <span id="fwp"></span></h3>
+   <div class="code" id="code"></div>
+   <div class="fsm"><div class="st" id="s0">IDLE</div>&rarr;<div class="st" id="s1">WATER</div>&rarr;<div class="st" id="s2">AIR</div>&rarr;<span class="small">back to IDLE</span></div>
+   <div class="prog"><i id="prog"></i></div><div class="small" id="progt" style="margin-top:4px"></div></section>
+  <section class="card"><h3>What the ESP32 reads right now</h3><table id="adc"></table></section>
+ </div>
+
+ <section class="card"><h3>Cause trouble &middot; panel <span id="selname"></span></h3>
+  <div class="grp">Panel</div><div id="psel"></div>
+  <div class="grp">On that panel</div>
+  <button data-c="dirty">Make dirty now</button><button data-c="bird">Bird dropping</button><button data-c="shade" data-f="shade">Shade</button><button data-c="hotspot" data-f="hotspot">Hotspot</button><button data-c="crack" data-f="crack">Cracked cell</button><button data-c="repair">Repair faults</button>
+  <div class="grp">Whole site</div>
+  <button data-c="storm" data-g="storm">Dust storm (1 h)</button><button data-c="rain_forecast" data-g="forecast_rain">Rain forecast</button><button data-c="timer" data-g="timer">2 h backup timer</button>
+  <div class="grp">Time scale: <span id="spv"></span></div>
+  <button data-c="speed" data-v="0">Pause</button><button data-c="speed" data-v="1">1x</button><button data-c="speed" data-v="10">10x</button><button data-c="speed" data-v="60">60x</button><button data-c="speed" data-v="120">120x</button><button data-c="speed" data-v="300">300x</button><button data-c="speed" data-v="1200">1200x</button></section>
+ <section class="card"><h3>World and node log</h3><pre id="world"></pre><pre id="log" style="margin-top:8px;color:#cfe0f1"></pre></section>
+</main>
+<script>
+const $=id=>document.getElementById(id),NS='http://www.w3.org/2000/svg';
+let S=null,sel=0;
+const mk=(t,a,p)=>{const e=document.createElementNS(NS,t);for(const k in a)e.setAttribute(k,a[k]);(p||$('svg')).appendChild(e);return e};
+// ---- colour map for the cells (same idea as the customer heatmap)
+const STOPS=[[0,[20,30,110]],[.2,[30,130,200]],[.4,[40,190,170]],[.6,[250,225,60]],[.8,[250,140,30]],[.92,[225,40,30]],[1,[255,235,220]]];
+const heat=f=>{f=Math.min(1,Math.max(0,f));for(let k=1;k<STOPS.length;k++)if(f<=STOPS[k][0]){const[a,ca]=STOPS[k-1],[b,cb]=STOPS[k],u=(f-a)/(b-a);return'rgb('+ca.map((c,j)=>Math.round(c+(cb[j]-c)*u))+')'}};
+// ---- build static drawing parts
+const cells=[],dust=[],bird=[],ctext=[];
+for(let i=0;i<8;i++){const r=Math.floor(i/4),c=i%4,x=340+c*138,y=160+r*120;
+ cells.push(mk('rect',{x,y,width:134,height:116,rx:4,fill:'#444'},$('cells')));
+ dust.push(mk('rect',{x,y,width:134,height:116,rx:4,fill:'#8a6a3a',opacity:0},$('cells')));
+ bird.push(mk('ellipse',{cx:x+70,cy:y+55,rx:26,ry:18,fill:'#e9e6dc',opacity:0},$('cells')));
+ ctext.push(mk('text',{x:x+67,y:y+64,'text-anchor':'middle',class:'t',style:'font-size:16px'},$('cells')))}
+for(let c=0;c<4;c++){const nx=400+c*130;mk('rect',{x:nx-7,y:116,width:14,height:16,fill:'#8fa9c2'},$('nozzles'));
+ for(let k=0;k<5;k++){const d=mk('line',{x1:nx+(k-2)*8,x2:nx+(k-2)*8,y1:136,y2:150},$('spray'));d.setAttribute('class','drop');d.style.animationDelay=(k*0.16+(c%2)*0.08)+'s'}}
+for(let k=0;k<9;k++){const y=175+k*27,l=mk('line',{x1:880,x2:830,y1:y,y2:y},$('air'));l.setAttribute('class','streak');l.style.animationDelay=(k*0.07)+'s'}
+// pins
+const PINS=[['GPIO34','V',410,540,'t'],['GPIO35','I',465,540,'t'],['GPIO32','LDR',520,540,'t'],['GPIO36','MUX',575,540,'t'],['GPIO25','S0',630,540,'t'],['GPIO26','S1',685,540,'t'],['GPIO27','S2',740,540,'t'],['GPIO16','valve',800,585,'r'],['GPIO17','blower',800,625,'r']];
+const pinEl={};
+PINS.forEach(([g,n,x,y,s])=>{const b=mk('circle',{cx:x,cy:y,r:7,fill:'#1d5470',stroke:'#4fc3f7','stroke-width':2},$('pins'));
+ if(s==='t'){mk('text',{x,y:y+22,'text-anchor':'middle',class:'t',style:'font-size:11px'},$('pins')).textContent=n;mk('text',{x,y:y+34,'text-anchor':'middle',class:'small'},$('pins')).textContent=g}else mk('text',{x:x-12,y:y+4,'text-anchor':'end',class:'small'},$('pins')).textContent=n+' '+g;pinEl[g]=b});
+// code listing
+const CODE=[['clean','  cleanLoop();                         // state machine: water -> air -> idle'],['poll','  if (every 1 s) pollCommand();        // GET /api/command from the brain'],['rep','  if (every REPORT_MS) publishReading(); // read pins, POST /api/reading'],['timer','  if (IDLE && 2 h passed) startClean();  // backup timer']];
+$('code').innerHTML='<div class="cm">void loop() {</div>'+CODE.map(c=>`<div id="c_${c[0]}">${c[1]}</div>`).join('')+'<div class="cm">}</div>';
+// controls
+const send=(cmd,extra)=>fetch('/do',{method:'POST',body:JSON.stringify({cmd,panel:sel,...extra})});
+document.querySelector('main').addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;
+ if(b.dataset.p!==undefined){sel=+b.dataset.p;send('select');render()}else if(b.dataset.c)send(b.dataset.c,b.dataset.v!==undefined?{value:+b.dataset.v}:{})});
+async function tick(){try{S=await(await fetch('/state')).json();render()}catch(e){$('link').textContent='console lost'}}
+function render(){if(!S)return;const P=S.panels[sel],N=P.node,now=S.now;
+ $('clock').textContent=S.clock+(S.raining?' · raining':'')+' · sun '+S.sun_wm2+' W/m2 · '+S.ambient_c+'°C air';
+ $('ldot').className='dot'+(S.link?' on':'');$('link').textContent=S.link?'sending to '+S.api:'API not reachable: '+S.api;
+ $('tabs').innerHTML=S.panels.map((p,i)=>`<button data-p="${i}" class="${i===sel?'on':''}">${p.id}</button>`).join('');
+ $('psel').innerHTML=$('tabs').innerHTML;$('selname').textContent=P.id;$('fwp').textContent='panel '+P.id;
+ // cells: heat from true cell temperature, relative to this panel
+ const med=[...P.temps].sort((a,b)=>a-b)[4],lo=Math.min(Math.min(...P.temps),med-5),hi=Math.max(Math.max(...P.temps),med+7);
+ P.temps.forEach((t,i)=>{cells[i].setAttribute('fill',heat((t-lo)/(hi-lo)*.8+.1));ctext[i].textContent=t.toFixed(0)+'°';dust[i].setAttribute('opacity',Math.min(.75,(P.soil[i]-P.stuck[i])*2.2));bird[i].setAttribute('opacity',Math.min(.95,P.stuck[i]*2.2))});
+ // actuators
+ const v=N.cs==='WATER',b=N.cs==='AIR';
+ $('spray').classList.toggle('spray',v);$('spray').style.display=v?'':'none';$('air').style.display=b?'':'none';
+ $('blower').classList.toggle('spinning',b);$('blowt').textContent=b?'RUNNING':'off';$('blowt').style.fill=b?'#2ecc71':'';
+ $('valveC').setAttribute('fill',v?'#1d6b3c':'#16283c');$('valveC').setAttribute('stroke',v?'#2ecc71':'#8fa9c2');$('valveX').style.display=v?'none':'';$('valvet').textContent=v?'OPEN':'closed';$('valvet').style.fill=v?'#2ecc71':'';
+ ['flow1','flow2'].forEach(id=>$(id).classList.toggle('go',v));
+ $('led1').setAttribute('fill',v?'#2ecc71':'#333');$('led2').setAttribute('fill',b?'#2ecc71':'#333');
+ ['wr1','cv'].forEach(id=>$(id).classList.toggle('act',v));['wr2','cb'].forEach(id=>$(id).classList.toggle('act',b));
+ pinEl.GPIO16.setAttribute('fill',v?'#2ecc71':'#1d5470');pinEl.GPIO17.setAttribute('fill',b?'#2ecc71':'#1d5470');
+ const h=Math.round(1.86*N.tank);$('water').setAttribute('height',h);$('water').setAttribute('y',476-h);$('tankpct').textContent=N.tank+'%';
+ // pins blinking while it samples (just after a report)
+ const rec=now-S.activity.report<.8;['GPIO34','GPIO35','GPIO32','GPIO36','25','26','27'].forEach(g=>pinEl[g].setAttribute('fill',rec?'#ffb703':'#1d5470'));['w1','w2'].forEach(id=>$(id).classList.toggle('act',rec));
+ $('wifi').setAttribute('opacity',rec||now-S.activity.poll<.4?1:.25);$('wifit').textContent=rec?'POST reading':(now-S.activity.poll<.4?'GET command':'API link');
+ $('vit').textContent=N.last.v+' V   '+N.last.a+' A';$('muxt').textContent='8 temp sensors';
+ $('espstate').textContent='state '+N.cs+'   valve '+(v?'ON':'off')+'   blower '+(b?'ON':'off');
+ // code highlight
+ $('c_clean').className=N.cs!=='IDLE'?'hl':'';$('c_poll').className=now-S.activity.poll<.5?'hl':'';$('c_rep').className=rec?'hl':'';$('c_timer').className=N.timer_on&&N.timer_in_s<=0&&N.cs==='IDLE'?'hl':'';
+ // state machine
+ ['IDLE','WATER','AIR'].forEach((n,i)=>{const e=$('s'+i);e.className='st'+(N.cs===n?' cur'+(n==='WATER'?' w':''):'')});
+ const pct=N.cs==='IDLE'?0:Math.min(100,N.elapsed_ms/N.total_ms*100);$('prog').style.width=pct+'%';
+ $('progt').textContent=N.cs==='IDLE'?(N.timer_on?'Idle. Backup timer fires in '+Math.max(0,Math.round(N.timer_in_s/60))+' simulated minutes.':'Idle. Backup timer is off. Waiting for a command from the API.'):(N.cs==='WATER'?'Valve open: ':'Blower on: ')+Math.round(N.elapsed_ms/100)/10+' s of '+N.total_ms/1000+' s';
+ // adc table
+ const C=S.cfg,a=N.adc;
+ $('adc').innerHTML='<tr><th>Input</th><th>pin mV</th><th>firmware turns it into</th></tr>'+
+  `<tr><td>GPIO34 panel voltage</td><td>${a.volt_mv}</td><td>${a.volt_mv/1000} V x ${C.volt_div} = ${N.last.v} V</td></tr>`+
+  `<tr><td>GPIO35 current sensor</td><td>${a.curr_mv}</td><td>(${a.curr_mv/1000} - ${C.zero}) / ${C.vpa} = ${N.last.a} A</td></tr>`+
+  `<tr><td>GPIO32 LDR</td><td>${a.ldr_mv}</td><td>${N.last.lux} lux</td></tr>`+
+  a.temp_mv.map((m,i)=>`<tr><td>mux channel ${i} (R${Math.floor(i/4)+1} C${i%4+1})</td><td>${m}</td><td>${(m/C.mvc).toFixed(1)} °C</td></tr>`).join('');
+ $('world').textContent=`Dust on ${P.id}: ${P.soil_pct}%   Storm: ${S.storm}   Rain forecast: ${S.forecast_rain}   Raining: ${S.raining}`;
+ $('log').textContent=S.events.join('\n');
+ $('spv').textContent=S.speed===0?'paused':`${S.speed}x. 1 real second = ${S.speed>=60?(S.speed/60).toFixed(1)+' sim minutes':S.speed+' sim seconds'}; a day = ${(86400/S.speed/60).toFixed(1)} real minutes`;
+ document.querySelectorAll('[data-f]').forEach(x=>x.classList.toggle('on',!!P.faults[x.dataset.f]));
+ document.querySelectorAll('[data-g]').forEach(x=>x.classList.toggle('on',!!S[x.dataset.g]));
+ document.querySelectorAll('[data-v]').forEach(x=>x.classList.toggle('on',+x.dataset.v===S.speed));
+}
+setInterval(tick,250);tick();
+</script></body></html>

@@ -22,10 +22,10 @@
 .say{font-size:clamp(18px,1.9vw,22px);font-weight:700;line-height:1.3;margin:6px 0 16px;min-height:2.6em;max-width:60ch}
 .cap{color:var(--ink2);font-size:14.5px;margin-top:10px;max-width:84ch}
 .dwrap{overflow-x:auto;margin-inline:-2px;padding-inline:2px}
-.d{display:block;width:100%;max-width:1180px;height:auto;min-width:860px}
+.d{display:block;width:100%;max-width:1180px;height:auto;min-width:1040px}
 .d text{font-family:var(--sans);fill:var(--ink)}
 .d .t{font-size:15px;font-weight:700}
-.d .s{font-size:13.5px;fill:var(--ink2)}
+.d .s{font-size:13.5px;fill:var(--ink2)}.d .s.in{fill:var(--ink);stroke:var(--paper);stroke-width:3.5px;paint-order:stroke;stroke-linejoin:round}
 .d .v{font-size:14px;font-weight:700;font-variant-numeric:tabular-nums}
 .d .big{font-size:28px;font-weight:800;font-variant-numeric:tabular-nums}
 .d .cellt{font-size:16px;font-weight:700;font-variant-numeric:tabular-nums}
@@ -44,10 +44,12 @@
 .d .wire.act{stroke:var(--ink);stroke-dasharray:6 5;animation:dash .5s linear infinite}
 .d .chip rect{fill:var(--ground);stroke:var(--rule2);stroke-width:1.5}
 .d .chip.amber rect{fill:var(--sun);stroke:var(--ink)}
+.d .chip.amber text{fill:var(--on-sun)}
 .d .chip.go rect{fill:var(--ok);stroke:var(--ok)}
 .d .chip.go text{fill:#fff}
+[data-theme=dark] .d .chip.go text{fill:#16191C}
 .d .chip.wet rect{fill:var(--water);stroke:var(--water)}
-.d .chip.wet text{fill:#fff}
+.d .chip.wet text{fill:#16191C}
 .d .chip.off rect{fill:var(--paper);stroke:var(--rule)}
 .d .drop{stroke:var(--water);stroke-width:3;stroke-linecap:round;opacity:0}
 .d .spray .drop{animation:fall .8s linear infinite}
@@ -70,7 +72,7 @@
 .d .sleepy .zzz{animation:zz 2.2s ease-in-out infinite}
 @keyframes zz{0%{opacity:0;transform:translateY(6px)}50%{opacity:1}100%{opacity:0;transform:translateY(-12px)}}
 .code{font:13.5px/1.7 var(--mono);background:var(--ground);border-radius:var(--r);padding:12px 6px;overflow-x:auto}
-.code div{padding:0 10px;border-left:4px solid transparent;white-space:pre}
+.code div{padding:0 10px;border-left:4px solid transparent;white-space:pre;width:max-content;min-width:100%}
 .code div.hl{background:var(--sun);color:var(--on-sun);border-left-color:var(--ink);font-weight:600}
 .code .cm{color:var(--ink3)}
 .fsm{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:14px 0 0}
@@ -127,7 +129,7 @@
         <div class="code" id="code" role="img" aria-label="The firmware loop"></div>
         <div class="fsm"><span class="st" id="s0">IDLE</span><span class="sep">then</span><span class="st" id="s1">WATER</span><span class="sep">then</span><span class="st" id="s2">AIR</span></div>
         <div class="prog"><i id="prog"></i></div>
-        <div class="fsm"><span class="st" id="a0">Awake</span><span class="st" id="a1">Deep sleep</span><span class="st" id="a2">Tap refill</span></div>
+        <div class="fsm"><span class="st" id="f0">Awake</span><span class="st" id="f1">Deep sleep</span><span class="st" id="f2">Tap refill</span></div>
       </div>
       <div>
         <h2 class="h2">Power: <span id="pmode"></span></h2>
@@ -195,8 +197,8 @@
       `<circle id="tapC" cx="196" cy="152" r="17" class="vlv"/><path id="tapX" d="M186 142l20 20M206 142l-20 20" class="vx"/>${T(222, 148, 'K2 tap valve', 't')}${T(222, 166, '12 V solenoid, normally closed')}${T(222, 184, 'closed', 'v', '', 'tapt')}` +
       `<rect x="40" y="222" width="176" height="230" rx="8" fill="var(--paper)" stroke="var(--ink)" stroke-width="2.5"/><rect id="water" x="44" y="448" width="168" height="0" fill="var(--water)" opacity=".75"/>` +
       `<g id="tankping"><rect x="96" y="200" width="64" height="22" rx="3" fill="var(--paper)" stroke="var(--ink)" stroke-width="2"/><line class="ping" x1="112" x2="112" y1="226" y2="236"/><line class="ping" x1="128" x2="128" y1="226" y2="236" style="animation-delay:.2s"/><line class="ping" x1="144" x2="144" y1="226" y2="236" style="animation-delay:.4s"/></g>${T(128, 192, 'JSN-SR04T-2.0', 's', 'middle')}` +
-      `<circle id="fHigh" cx="204" cy="252" r="7" fill="var(--rule2)" stroke="var(--ink)" stroke-width="2"/>${T(190, 257, 'float high', 's', 'end')}<circle id="fLow" cx="204" cy="424" r="7" fill="var(--rule2)" stroke="var(--ink)" stroke-width="2"/>${T(190, 429, 'float low', 's', 'end')}` +
-      `${T(128, 336, '', 'big', 'middle', 'tankpct')}${T(128, 358, '', 's', 'middle', 'tanklit')}${T(128, 376, '', 's', 'middle', 'tanksens')}${T(128, 476, '20 L tank: rain first, tap as back-up', 's', 'middle')}${T(128, 496, '', 'v', 'middle', 'holdt')}` +
+      `<circle id="fHigh" cx="204" cy="252" r="7" fill="var(--rule2)" stroke="var(--ink)" stroke-width="2"/>${T(190, 257, 'float high', 's in', 'end')}<circle id="fLow" cx="204" cy="424" r="7" fill="var(--rule2)" stroke="var(--ink)" stroke-width="2"/>${T(190, 429, 'float low', 's in', 'end')}` +
+      `${T(128, 336, '', 'big', 'middle', 'tankpct')}${T(128, 358, '', 's in', 'middle', 'tanklit')}${T(128, 376, '', 's in', 'middle', 'tanksens')}${T(128, 476, '20 L tank: rain first, tap as back-up', 's', 'middle')}${T(128, 496, '', 'v', 'middle', 'holdt')}` +
       `<path class="pipe" d="M216 438H350V196H890"/><path id="flowS" class="flow" d="M216 438H350V196H890"/>` +
       `<circle id="spC" cx="290" cy="438" r="17" class="vlv"/><path id="spX" d="M280 428l20 20M300 428l-20 20" class="vx"/>${T(290, 474, 'K1 spray valve', 't', 'middle')}${T(290, 492, '12 V solenoid', 's', 'middle')}${T(290, 510, 'closed', 'v', 'middle', 'spt')}` +
       `${T(620, 184, 'Spray pipe along the top edge', 's', 'middle')}<rect x="400" y="226" width="490" height="214" rx="6" fill="var(--frame)"/><rect x="412" y="260" width="466" height="146" fill="var(--cell)"/><g id="cells">${cells}</g>` +
@@ -329,7 +331,7 @@
     const hl = (id, on) => { $(id).className = on ? 'hl' : ''; };
     hl('c_clean', !asleep && (N.cs !== 'IDLE' || tp)); hl('c_poll', polling); hl('c_rep', rec); hl('c_sleep', asleep); hl('c_timer', !asleep && N.timer_on && N.timer_in_s <= 0 && N.cs === 'IDLE');
     ['IDLE', 'WATER', 'AIR'].forEach((n, i) => { $('s' + i).className = 'st' + (!asleep && N.cs === n ? ' cur' : ''); });
-    $('a0').className = 'st' + (!asleep ? ' cur' : ''); $('a1').className = 'st' + (asleep ? ' cur' : ''); $('a2').className = 'st' + (tp ? ' cur' : '');
+    $('f0').className = 'st' + (!asleep ? ' cur' : ''); $('f1').className = 'st' + (asleep ? ' cur' : ''); $('f2').className = 'st' + (tp ? ' cur' : '');
     $('prog').style.width = (N.cs === 'IDLE' || asleep ? 0 : Math.min(100, ms / N.total_ms * 100)) + '%';
     $('progt').textContent = asleep ? 'Asleep, so nothing runs. On its timer the ESP32 looks at the four light sensors and the rain sensor, and goes back to sleep unless it is day and dry.'
       : N.cs === 'IDLE' ? (N.timer_on ? `The backup timer fires in ${Math.max(0, Math.round(N.timer_in_s / 60))} simulated minutes.` : 'The firmware loop below runs all day. It is a line-for-line port of solarsentinel.ino.') : 'A wash is running: water first, then the blower.';

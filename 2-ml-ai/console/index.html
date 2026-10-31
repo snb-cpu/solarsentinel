@@ -25,6 +25,13 @@
 .steps li::before{content:counter(s);font-weight:800}
 .act{font-weight:700;white-space:nowrap}
 .ft{padding-block:28px 48px;border-top:1px solid var(--rule);color:var(--ink3);font-size:14px}
+@media(max-width:640px){
+#feed tr:first-child{display:none}
+#feed,#feed tbody{display:block}
+#feed tr{display:grid;grid-template-columns:auto auto minmax(0,1fr) auto;gap:2px 12px;align-items:center;padding:9px 0;border-bottom:1px solid var(--rule)}
+#feed td{padding:0;border:0}
+#feed td:last-child{grid-column:1/-1;color:var(--ink2)}
+}
 </style>
 </head>
 <body>
@@ -84,10 +91,10 @@
   const $ = (id) => document.getElementById(id), nf = SS.fmt.n;
   SS.theme($('theme'));
   const ICON = {
-    y: '<svg viewBox="0 0 16 16" aria-label="passes"><circle cx="8" cy="8" r="8" fill="var(--ok)"/><path d="M4.5 8.5l2.4 2.4 4.6-5" stroke="#fff" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>',
-    n: '<svg viewBox="0 0 16 16" aria-label="blocks the wash"><circle cx="8" cy="8" r="8" fill="var(--fault)"/><path d="M5.2 5.2l5.6 5.6M10.8 5.2l-5.6 5.6" stroke="#fff" stroke-width="2" fill="none" stroke-linecap="round"/></svg>',
-    i: '<svg viewBox="0 0 16 16" aria-label="information"><circle cx="8" cy="8" r="3.5" fill="var(--ink3)"/></svg>',
-    s: '<svg viewBox="0 0 16 16" aria-label="no wash"><circle cx="8" cy="8" r="8" fill="var(--ink2)"/><path d="M4.5 8h7" stroke="var(--paper)" stroke-width="2" stroke-linecap="round"/></svg>',
+    y: '<svg viewBox="0 0 16 16" role="img" aria-label="passes"><circle cx="8" cy="8" r="8" fill="var(--ok)"/><path d="M4.5 8.5l2.4 2.4 4.6-5" stroke="#fff" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+    n: '<svg viewBox="0 0 16 16" role="img" aria-label="blocks the wash"><circle cx="8" cy="8" r="8" fill="var(--fault)"/><path d="M5.2 5.2l5.6 5.6M10.8 5.2l-5.6 5.6" stroke="#fff" stroke-width="2" fill="none" stroke-linecap="round"/></svg>',
+    i: '<svg viewBox="0 0 16 16" role="img" aria-label="information"><circle cx="8" cy="8" r="3.5" fill="var(--ink3)"/></svg>',
+    s: '<svg viewBox="0 0 16 16" role="img" aria-label="no wash"><circle cx="8" cy="8" r="8" fill="var(--ink2)"/><path d="M4.5 8h7" stroke="var(--paper)" stroke-width="2" stroke-linecap="round"/></svg>',
   };
   const rows = {};
   let last = null;

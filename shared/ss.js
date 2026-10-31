@@ -129,6 +129,8 @@
     const W = Math.max(2, Math.round(cv.clientWidth * dpr)), H = Math.max(2, Math.round(cv.clientHeight * dpr));
     if (cv.width !== W || cv.height !== H) { cv.width = W; cv.height = H; }
     const sc = scaleOf(temps), img = octx.createImageData(96, 48), sig = 0.17, rgbAt = [];
+    const alt = 'Cell temperatures: hottest ' + sc.max.toFixed(1) + '°, coolest ' + sc.min.toFixed(1) + '°';
+    if (cv.getAttribute('aria-label') !== alt) { cv.setAttribute('role', 'img'); cv.setAttribute('aria-label', alt); }
     for (let y = 0; y < 48; y++) for (let x = 0; x < 96; x++) {
       const u = (x + 0.5) / 96, v = (y + 0.5) / 48; let sw = 0, st = 0;
       for (let r = 0; r < R; r++) for (let c = 0; c < C; c++) {
@@ -199,10 +201,13 @@
       const X = (i) => m.l + i * (W - m.l - m.r) / (n - 1), Y = (v) => H - m.b - v / max * (H - m.t - m.b);
       let g = '', mk = '', lastX = -99;
       [0, 0.5, 1].forEach((f) => { const y = Y(max * f); g += `<line x1="${m.l}" x2="${W - m.r}" y1="${y}" y2="${y}"/><text x="${m.l - 8}" y="${y + 4}" text-anchor="end">${SS.fmt.n(max * f)}${f === 1 ? ' ' + unit : ''}</text>`; });
+      const taken = [];                                        // left edges of the "washed" words drawn so far, so two never run together
       data.forEach((d, i) => {
         if (d.c && X(i) - lastX > 70) {
           lastX = X(i); const near = X(i) > W - m.r - 60;      // keep the word inside the chart near the right edge
-          mk += `<line x1="${X(i)}" x2="${X(i)}" y1="${m.t}" y2="${H - m.b}"/><text x="${near ? X(i) - 5 : X(i) + 5}" y="${m.t + 11}"${near ? ' text-anchor="end"' : ''}>washed</text>`;
+          const a = near ? X(i) - 53 : X(i) + 5, free = !taken.some((t) => a < t + 54 && a + 48 > t - 6);
+          if (free) taken.push(a);
+          mk += `<line x1="${X(i)}" x2="${X(i)}" y1="${m.t}" y2="${H - m.b}"/>` + (free ? `<text x="${near ? X(i) - 5 : X(i) + 5}" y="${m.t + 11}"${near ? ' text-anchor="end"' : ''}>washed</text>` : '');
         }
       });
       const pts = data.map((d, i) => `${X(i).toFixed(1)},${Y(d.p).toFixed(1)}`).join(' '), last = data[n - 1];

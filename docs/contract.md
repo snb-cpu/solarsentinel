@@ -50,6 +50,7 @@ Cycle: solenoid water pulse first, then blower/air dry. Hardware also has its ow
 | Node -> API | `GET /api/command?panel=P1` | polled every 1 s; returns `{}` or the command above |
 | Weather feed -> API | `POST /api/weather` | `{"rain_48h":bool,"day_factor":[7],"ambient_c":27.0,"raining":false}` (in the demo, laptop A plays the weather service) |
 | UI -> API | `GET /events` | live stream (server-sent events) of reading + decision + weather + history + log |
+| UI -> API | `POST /api/sim` | demo controls: `{"cmd":"bird","panel":1}` (cmd: dirty, bird, shade, hotspot, crack, repair, storm, rain_forecast, timer, speed+value). The API relays to the simulator, which polls `GET /api/simcmd` and posts its state to `POST /api/simstate` (shown to the UI as `sim`) |
 | UI -> API | `POST /api/clean` | customer's manual "Clean now" |
 
 The decision also carries `forecast_kwh_7d` (with current dirt) and `forecast_clean_kwh_7d` (if the panel were clean).

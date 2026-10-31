@@ -32,6 +32,8 @@ svg{width:100%;height:150px;display:block}
 .ghost{position:absolute;bottom:20px;width:100%;border:1px dashed #6f8db1;border-radius:4px}.now{position:relative;width:100%;background:var(--amb);border-radius:4px}.col small{color:var(--mut);margin-top:4px;font-size:11px;text-align:center}
 .log{max-height:150px;overflow:auto;font-size:13px;color:#cfe0f1}.log div{padding:3px 0;border-bottom:1px solid #1a3558}.log i{color:var(--mut);font-style:normal;margin-right:8px}
 .note{color:var(--mut);font-size:12px;margin-top:8px}
+.demo button{background:#0f2441;border:1px solid var(--line);margin:4px 6px 4px 0}.demo button:hover{border-color:var(--amb)}.demo button.on{background:var(--amb);color:#0b1d33;font-weight:700;border-color:var(--amb)}
+.demo .sel button{padding:8px 18px}.demo .grp{margin:10px 0 4px;color:var(--mut);font-size:12px;text-transform:uppercase;letter-spacing:.06em}
 </style></head><body>
 <header><h1>SolarSentinel</h1><small>Autonomous solar monitoring and cleaning &middot; Team TRUENO</small>
 <div class="live"><span id="clock"></span><span class="dot" id="dot"></span><span id="src">connecting...</span></div></header>
@@ -43,6 +45,14 @@ svg{width:100%;height:150px;display:block}
   <section class="card"><h2>Total power output</h2><svg id="chart" viewBox="0 0 600 150" preserveAspectRatio="none"></svg><div class="note">Dashed vertical lines mark a completed wash.</div></section>
   <section class="card"><h2>7-day energy forecast, all panels (kWh)</h2><div class="bars" id="fc"></div><div class="note">Solid = with today's dirt. Dashed = if every panel were clean.</div></section>
  </div>
+ <section class="card demo" id="demo"><h2>Demo controls (simulator)</h2>
+  <div class="grp">Choose the panel to affect</div><div class="sel" id="dsel"></div>
+  <div class="grp">Cause trouble on that panel</div>
+  <button data-c="dirty">Make dirty now</button><button data-c="bird">Bird dropping</button><button data-c="shade" data-f="shade">Shade</button><button data-c="hotspot" data-f="hotspot">Hotspot</button><button data-c="crack" data-f="crack">Cracked cell</button><button data-c="repair">Repair faults</button>
+  <div class="grp">Whole site</div>
+  <button data-c="storm" data-g="storm">Dust storm (1 h)</button><button data-c="rain_forecast" data-g="forecast_rain">Rain forecast</button><button data-c="timer" data-g="timer">2 h backup timer</button>
+  <div class="grp">Speed <span id="spv"></span> simulated seconds per real second</div><input type="range" id="sp" min="30" max="1200" value="120" style="width:260px">
+  <div class="note" id="dnote">Waiting for the simulator...</div></section>
  <section class="card"><h2>Activity</h2><div class="log" id="log"></div></section>
 </main>
 <script>
@@ -104,7 +114,20 @@ function draw(m){
  $('chart').innerHTML=`<polyline points="${h.map((x,k)=>`${k/n*W},${Hh-x.p/top*Hh}`).join(' ')}" fill="none" stroke="#ffb703" stroke-width="3"/>`+h.map((x,k)=>x.c?`<line x1="${k/n*W}" x2="${k/n*W}" y1="0" y2="${Hh}" stroke="#4fc3f7" stroke-dasharray="5 4"/>`:'').join('');
  $('log').innerHTML=m.log.slice().reverse().map(l=>`<div><i>${l.t}</i>${l.msg}</div>`).join('');
 }
-function connect(){const es=new EventSource(API+'/events');es.onmessage=e=>draw(JSON.parse(e.data));
+// ---- demo controls: sent to the API, relayed to the simulator
+const demo=new URLSearchParams(location.search).get('demo')!=='0';$('demo').style.display=demo?'':'none';
+let dsel=0;const send=(cmd,extra)=>fetch(API+'/api/sim',{method:'POST',body:JSON.stringify({cmd,panel:dsel,...extra})});
+$('demo').onclick=e=>{const b=e.target.closest('button');if(!b)return;if(b.dataset.p!==undefined){dsel=+b.dataset.p;drawDemo(lastSim)}else if(b.dataset.c)send(b.dataset.c)};
+$('sp').oninput=e=>send('speed',{value:+e.target.value});
+let lastSim=null;
+function drawDemo(S){lastSim=S;if(!demo)return;
+ if(!S){$('dnote').textContent='Simulator not connected.';return}
+ $('dsel').innerHTML=S.panels.map((p,i)=>`<button data-p="${i}" class="${i===dsel?'on':''}">${p.id}</button>`).join('');
+ const f=S.panels[dsel].faults;
+ document.querySelectorAll('#demo [data-f]').forEach(b=>b.classList.toggle('on',!!f[b.dataset.f]));
+ document.querySelectorAll('#demo [data-g]').forEach(b=>b.classList.toggle('on',!!S[b.dataset.g]));
+ $('spv').textContent=S.speed;if(document.activeElement!==$('sp'))$('sp').value=S.speed;$('dnote').textContent=`Simulated site clock ${S.clock}. Sun ${S.sun_wm2} W/m2. Dust on ${S.panels[dsel].id}: ${S.panels[dsel].soil_pct}%.`}
+function connect(){const es=new EventSource(API+'/events');es.onmessage=e=>{const m=JSON.parse(e.data);draw(m);drawDemo(m.sim)};
  es.onerror=()=>{$('src').textContent='cannot reach API at '+API;$('dot').style.background='#e63946'}}
 connect();
 </script></body></html>

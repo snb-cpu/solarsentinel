@@ -107,7 +107,7 @@ class Sim:
             w.cloud, w.raining, w.rain_until, w.storm_until = w0.cloud, w0.raining, w0.rain_until, w0.storm_until
             w.forecast_rain, w.rain_at = False, None
     def run(self):
-        last, t_rep, t_cmd, t_wx = time.time(), 0, 0, 0
+        last, t_rep, t_cmd, t_wx, t_sim = time.time(), 0, 0, 0, 0
         while True:
             now = time.time(); real = now - last; last = now
             for k, (w, n) in enumerate(zip(self.worlds, self.nodes)):
@@ -122,6 +122,10 @@ class Sim:
                 for n in self.nodes:
                     c = http(self.api, f"/api/command?panel={n.pid}")
                     if c and c.get("action") == "clean": n.start_clean(c.get("water_ms", 4000), c.get("air_ms", 8000), c.get("why", "command from API"))
+            if now - t_sim >= 1.0:                                  # demo controls relayed through the API
+                t_sim = now; c = http(self.api, "/api/simcmd")
+                for cmd in (c or {}).get("cmds", []): self.do(cmd)
+                http(self.api, "/api/simstate", self.state())
             if now - t_wx >= 5.0:
                 t_wx = now; http(self.api, "/api/weather", self.weather_feed())
             time.sleep(0.1)

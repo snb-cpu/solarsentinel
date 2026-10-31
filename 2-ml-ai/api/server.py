@@ -52,6 +52,7 @@ class App:
         self.p = {}                       # panel_id -> {reading, decision, rx, history, pending, last_cmd, prev_cs}
         self.weather = {"rain_48h": False, "day_factor": [1, .95, .9, 1, 1, .9, 1], "ambient_c": None, "raining": False}
         self.site_hist, self.washed, self.log, self.clients = [], False, [], []
+        self.simq, self.sim = [], None      # demo controls: UI -> API -> simulator, and the simulator's state back to the UI
         self.lock = threading.Lock(); self.say("API started. Waiting for the panel nodes.")
     def say(self, m):
         self.log.append({"t": datetime.now().strftime("%H:%M:%S"), "msg": m}); self.log = self.log[-40:]
@@ -96,7 +97,7 @@ class App:
                     "loss_inr_per_day": round(sum(d["loss_inr_per_day"] for d in ds), 1), "history": self.site_hist,
                     "forecast_kwh_7d": [round(sum(d["forecast_kwh_7d"][i] for d in ds), 1) for i in range(7)] if ds else [],
                     "forecast_clean_kwh_7d": [round(sum(d["forecast_clean_kwh_7d"][i] for d in ds), 1) for i in range(7)] if ds else []}
-            return {"panels": panels, "site": site, "weather": self.weather, "log": self.log, "ml": "ML model" if ml_decide else "rules",
+            return {"panels": panels, "site": site, "weather": self.weather, "log": self.log, "ml": "ML model" if ml_decide else "rules", "sim": self.sim,
                     "econ": {"panel_kw": ARRAY_KW, "tariff": TARIFF_INR, "clean_cost": CLEAN_COST_INR}}
     def push(self):
         data = f"data: {json.dumps(self.snapshot())}\n\n".encode()
@@ -126,6 +127,9 @@ class H(BaseHTTPRequestHandler):
                 st = app.p.get(pid); c = (st["pending"] or {}) if st else {}
                 if st: st["pending"] = None
             self.reply(json.dumps(c).encode())
+        elif self.path.startswith("/api/simcmd"):
+            with app.lock: c, app.simq = app.simq, []
+            self.reply(json.dumps({"cmds": c}).encode())
         elif self.path.startswith("/api/state"): self.reply(json.dumps(app.snapshot()).encode())
         else: self.reply((HERE.parent.parent / "1-ui-design" / "webapp" / "index.html").read_bytes(), "text/html; charset=utf-8")
     def do_POST(self):
@@ -136,6 +140,11 @@ class H(BaseHTTPRequestHandler):
             with app.lock:
                 if body.get("rain_48h") != app.weather["rain_48h"]: app.say("Weather feed: rain expected within 48 h" if body.get("rain_48h") else "Weather feed: no rain expected")
                 app.weather = body
+        elif self.path == "/api/sim":
+            with app.lock: app.simq.append(body)
+            app.say(f"Demo control: {body.get('cmd')}" + (f" on panel {int(body.get('panel', 0)) + 1}" if body.get("cmd") in ("bird", "dirty", "shade", "hotspot", "crack", "repair") else ""))
+        elif self.path == "/api/simstate":
+            app.sim = body
         elif self.path == "/api/clean":
             with app.lock:
                 for pid in ([body["panel_id"]] if body.get("panel_id") in app.p else list(app.p)):

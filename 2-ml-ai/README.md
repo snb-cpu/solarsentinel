@@ -1,43 +1,449 @@
-# 2-ml-ai  (owner: Pratham)
+# SolarSentinel – ML/AI Intelligence Module
 
-The brain. Runs on **your laptop (laptop B)**, shows every decision in your terminal, and sends it to the final API (on the Mac, which handles all the hardware).
+Pratham B R
 
-## Run it
+## 1. Overview
+
+The ML/AI module is the intelligence engine of **SolarSentinel – Autonomous Solar O&M Intelligence**. It monitors solar panel performance, identifies abnormal operating conditions, estimates energy production, calculates financial losses and recommends appropriate maintenance actions.
+
+The system processes sensor readings received from the hardware layer, analyzes panel conditions using Machine Learning models and rule-based decision logic, and publishes maintenance decisions through MQTT.
+
+The primary objective is to distinguish between normal operation, dust accumulation, partial shading, hotspots and hardware faults while preventing unsafe automatic cleaning operations.
+
+## 2. Key Features
+
+- **Solar Panel Condition Classification:** Identifies five operating conditions: OK, Dust, Shading, Hotspot and Fault.
+- **Thermal Heatmap Generation:** Converts a 2×3 temperature sensor grid into a normalized heatmap for identifying abnormal temperature patterns.
+- **Dust Detection:** Identifies uniform temperature increases and performance reduction associated with dust accumulation.
+- **Shading Detection:** Identifies uneven panel temperature and power loss patterns associated with partial shading.
+- **Hotspot and Fault Detection:** Detects abnormal temperature patterns and recommends manual inspection and repair.
+- **Weather Integration:** Uses weather forecast information to determine whether rainfall is expected within the next 48 hours.
+- **Energy Forecasting:** Estimates solar energy generation for the next seven days using a LightGBM regression model.
+- **Financial Loss Estimation:** Calculates estimated daily energy loss in INR and compares it with cleaning costs.
+- **Autonomous Maintenance Decisions:** Determines whether cleaning should be performed, delayed or avoided.
+- **MQTT Communication:** Receives sensor readings and publishes decisions and maintenance commands.
+- **Safety Mechanisms:** Prevents automatic cleaning for hotspots, hardware faults, shading conditions and unsuitable cleaning conditions.
+
+## 3. System Architecture
+
+The ML/AI module follows this processing pipeline:
+
+```text
+ESP32 / Hardware Sensors
+          |
+          v
+     MQTT Broker
+          |
+          v
+   Sensor Reading
+          |
+          v
+   Data Processing
+          |
+          v
+  ML Classification
+          |
+          v
+  Thermal Heatmap
+          |
+          v
+ Weather Integration
+          |
+          v
+ Energy Forecasting
+          |
+          v
+ Decision Engine
+          |
+          v
+   MQTT Broker
+      /       \
+     v         v
+ Decision   Cleaning Command
+     |         |
+     v         v
+ Dashboard   Hardware
 ```
-python3 -m venv venv && source venv/bin/activate        # Windows: venv\Scripts\activate
-pip install -r requirements.txt                         # Mac also needs: brew install libomp (for lightgbm)
-python ml_worker.py --api http://<IP-OF-THE-MAC>:8000
+
+## 4. Machine Learning Models
+
+### 4.1 Solar Panel Condition Classification
+
+The classification module uses **Random Forest Classifier** to identify the operating condition of a solar panel.
+
+The model classifies readings into five categories:
+
+| State | Description | Recommended Action |
+|---|---|---|
+| OK | Normal panel operation | No action |
+| Dust | Dust accumulation affecting performance | Evaluate cleaning |
+| Shading | Partial shading affecting panel output | Inspect shading |
+| Hotspot | Abnormal localized temperature increase | Manual inspection |
+| Fault | Potential hardware or electrical fault | Manual repair |
+
+Two classification stages are implemented:
+
+- Before Cleaning: Uses the initial sensor readings to identify panel conditions.
+- After Cleaning: Uses additional cleaning-response information to evaluate changes in panel performance.
+
+The trained models are saved in `model.pkl` for reuse during prediction.
+
+**Note:** The current training dataset is synthetically generated for demonstration and development. Its reported accuracy must not be interpreted as real-world field accuracy.
+
+### 4.2 Thermal Heatmap Generation
+
+The heatmap module processes the 2×3 temperature sensor grid.
+
+It performs the following operations:
+
+1. Validates the temperature grid.
+2. Calculates the median temperature.
+3. Measures temperature deviations from the median.
+4. Removes negative deviations.
+5. Normalizes the remaining values between 0 and 1.
+6. Generates a heatmap representing temperature abnormalities.
+
+Example:
+
+```json
+{
+  "heatmap": [
+    [0.0, 0.04, 0.0],
+    [0.01, 1.0, 0.0]
+  ]
+}
 ```
-You will see one line per panel per reading: state, power lost, rupees lost per day, WASH NOW, which model decided and how sure it is, and why. `--quiet` prints only changes.
-If you stop it, the API switches to its built-in rules after 8 seconds and switches back when you restart.
 
-## Four corner light sensors
-`ldr_corners_lux` has the light at the four panel corners. If they disagree by more than 25% the light is uneven (a shadow or a passing cloud) and the panel is never called dirty: no wash. Their average is used for the expected power, so an evenly overcast sky does not look like dirt either. The classifier has two light features (`light_spread_pct`, `light_min_ratio`) and `decide.py` has a hard guard on top. The training data includes passing clouds and fixed shadows.
+A higher normalized value indicates a stronger temperature deviation relative to the other sensor locations.
 
-## How a decision is made (`decide.py`)
-1. `classify.py` RandomForest, two models: **before-wash** and **after-wash**. The after-wash model sees what the wash changed (power recovered, temperature dropped, hot spot left) and is what separates dirt from a real fault.
-2. `heatmap.py` heat of each cell above the median (any grid size).
-3. `forecast.py` LightGBM 7-day energy forecast, with today's dirt and as if clean.
-4. Weather comes from the feed the Mac sends with every reading (no internet needed). `weather.py` (Open-Meteo) is only the fallback when no feed is given.
-5. Rules: fault or hotspot never gets water; shading never gets water; dust gets a wash only if no rain is forecast and the money lost per day is more than the Rs 2 wash; a hot patch with dirt-like signs is washed once to find out; low tank defers the wash.
-6. `ml_worker.py` remembers the reading before a wash, waits for the panel to cool (15 simulated minutes), then asks the after-wash model.
+### 4.3 Weather Integration
 
-## Training data (important)
-`data/make_physics.py` makes the training data from the **physics simulator** (3-hardware-sim/sim/world.py), the same one the demo runs, with real sensor noise. Re-make and retrain:
+The weather module integrates with the **Open-Meteo Weather API**.
+
+It retrieves weather forecast information to determine whether rainfall is expected within the next 48 hours.
+
+The system uses this information to make cleaning decisions:
+
+- Rain expected: Cleaning can be postponed.
+- No rain expected: Other cleaning conditions are evaluated.
+- Weather unavailable: Automatic cleaning is deferred for safety.
+
+Weather results are cached to reduce repeated API requests.
+
+### 4.4 Energy Forecasting
+
+The forecasting module uses **LightGBM Regressor** to estimate solar energy production for the next seven days.
+
+The model considers:
+
+- Forecast irradiance.
+- Temperature.
+- Current soiling loss.
+
+Output:
+
+```json
+{
+  "forecast_kwh_7d": [
+    3.1, 3.4, 2.9, 3.3, 3.5, 3.2, 3.0
+  ]
+}
 ```
-python data/make_physics.py 4000     # about 3 minutes
-python classify.py                   # writes model.pkl, prints accuracy and confusion matrices
-python -m pytest -q                  # 15 tests
+
+The values represent estimated daily energy production for seven consecutive days.
+
+The current forecasting implementation is a demonstration model trained using synthetic data.
+
+## 5. Intelligent Decision Engine
+
+The decision engine combines classification results, thermal analysis, weather information, energy forecasting and financial calculations.
+
+It determines whether the solar panel should continue normal operation, be inspected or undergo cleaning.
+
+### Decision Rules
+
+**OK:**
+- Panel operates under normal conditions.
+- No automatic cleaning is required.
+
+**Dust:**
+- Checks whether sufficient water is available.
+- Checks rainfall probability for the next 48 hours.
+- Estimates daily financial loss.
+- Compares energy loss against cleaning cost.
+- Recommends cleaning only when conditions are suitable and cleaning is economically beneficial.
+
+**Shading:**
+- Recommends inspection of the panel's surroundings.
+- Automatic cleaning is disabled.
+
+**Hotspot:**
+- Recommends manual inspection and repair.
+- Automatic cleaning is disabled.
+
+**Fault:**
+- Recommends manual inspection and repair.
+- Automatic cleaning is disabled.
+
+### Financial Calculations
+
+The decision engine estimates:
+
+- Daily energy loss in kWh.
+- Daily financial loss in INR.
+- Cleaning cost in INR.
+
+The current demonstration configuration uses:
+
+- Electricity rate: ₹8 per kWh.
+- Cleaning cost: ₹2.
+- Minimum tank level: 20%.
+
+These values are configurable and should be calibrated for the actual deployment.
+
+## 6. MQTT Communication
+
+The ML module communicates with the hardware layer through MQTT.
+
+### MQTT Topics
+
+| Topic | Purpose |
+|---|---|
+| `solar/<panel_id>/reading` | Receives sensor readings |
+| `solar/<panel_id>/decision` | Publishes ML decisions |
+| `solar/<panel_id>/command` | Publishes cleaning commands |
+
+### Sensor Reading Format
+
+Example input received from the hardware:
+
+```json
+{
+  "ts": "2026-10-31T10:00:00Z",
+  "panel_id": "P1",
+  "voltage_v": 18.2,
+  "current_a": 4.1,
+  "ldr_lux": 54000,
+  "temps_c": [
+    [41.2, 41.5, 41.0],
+    [41.3, 47.9, 41.1]
+  ],
+  "tank_level_pct": 70
+}
 ```
-Accuracy is about 99.8% on held-out episodes from the same simulator. That number is on simulated data. Real accuracy comes from Sanjay's rig. Say that to the judges.
-Your original hand-made generator is still in `data/make_synthetic.py`; `classify.py` uses `data/physics.csv` when it exists.
 
-## Changes made when merging your branch (so you know)
-- `classify.py` / `heatmap.py`: any grid size (the rig is 2x4, the Wokwi node 1x3); light is in lux (0 to 100,000) not 0-4095; expected power now corrects for panel temperature; model loaded once.
-- `decide.py`: new `weather=` argument, forecasts always computed and scaled to a 1.5 kW string, returns `forecast_clean_kwh_7d`, pauses at night, hot-patch rule.
-- `ml_worker.py` is new. `serve.py` (MQTT) is kept but not used: the system talks HTTP.
-- `api/server.py` is the final API. It does not need your libraries.
+### Decision Output Format
 
-## Rules
-- Push only inside this folder, on branch `ml/pratham`.
-- Keep files under 20 MB. Do not change `../docs/contract.md` without telling Sanjay.
+Example output generated by the ML module:
+
+```json
+{
+  "ts": "2026-10-31T10:00:02Z",
+  "panel_id": "P1",
+  "state": "dust",
+  "efficiency_loss_pct": 8.4,
+  "clean_now": true,
+  "reason": "Cleaning conditions are suitable",
+  "heatmap": [
+    [0.1, 0.2, 0.1],
+    [0.2, 0.9, 0.1]
+  ],
+  "forecast_kwh_7d": [
+    3.1, 3.4, 2.9, 3.3, 3.5, 3.2, 3.0
+  ],
+  "loss_inr_per_day": 12.5,
+  "clean_cost_inr": 2.0
+}
+```
+
+### Cleaning Command Format
+
+When cleaning is approved, the ML module publishes:
+
+```json
+{
+  "panel_id": "P1",
+  "action": "clean",
+  "water_ms": 4000,
+  "air_ms": 8000
+}
+```
+
+The command follows the shared hardware contract: water spraying occurs first, followed by air blowing.
+
+Automatic cleaning is disabled for hotspot and fault conditions.
+
+## 7. Project Structure
+
+```text
+2-ml-ai/
+│
+├── classify.py
+├── heatmap.py
+├── weather.py
+├── forecast.py
+├── decide.py
+├── serve.py
+│
+├── model.pkl
+│
+├── data/
+│   ├── make_synthetic.py
+│   ├── synthetic.csv
+│   └── sample_reading.json
+│
+├── models/
+│
+├── test_decide.py
+├── test_model.py
+│
+├── requirements.txt
+└── README.md
+```
+
+### File Description
+
+| File | Description |
+|---|---|
+| `classify.py` | Trains and runs Random Forest classification models |
+| `heatmap.py` | Generates normalized thermal heatmaps |
+| `weather.py` | Retrieves rainfall forecast information |
+| `forecast.py` | Predicts seven-day energy generation |
+| `decide.py` | Combines ML predictions and maintenance rules |
+| `serve.py` | MQTT subscriber and publisher for hardware communication |
+| `model.pkl` | Saved trained classification models |
+| `data/make_synthetic.py` | Generates synthetic training data |
+| `data/synthetic.csv` | Synthetic dataset for model training |
+| `data/sample_reading.json` | Sample sensor input |
+| `test_decide.py` | Tests decision engine scenarios |
+| `test_model.py` | Tests classification functionality |
+| `requirements.txt` | Python dependency list |
+
+## 8. Technologies Used
+
+| Technology | Purpose |
+|---|---|
+| Python | Core development language |
+| Scikit-learn | Random Forest classification |
+| LightGBM | Energy forecasting |
+| Pandas | Dataset processing |
+| NumPy | Numerical operations |
+| Paho-MQTT | MQTT communication |
+| Requests | Weather API integration |
+| Open-Meteo API | Weather forecasting |
+| Mosquitto | MQTT broker |
+| JSON | Hardware and ML data exchange |
+
+## 9. Installation and Setup
+
+### Prerequisites
+
+- Python 3.10 or later
+- pip
+- Git
+- Mosquitto MQTT Broker
+
+### Step 1: Navigate to the ML directory
+
+```bash
+cd 2-ml-ai
+```
+
+### Step 2: Create a virtual environment
+
+```bash
+python3 -m venv venv
+```
+
+### Step 3: Activate the virtual environment
+
+```bash
+source venv/bin/activate
+```
+
+### Step 4: Install dependencies
+
+```bash
+pip install -r requirements.txt
+```
+
+### Step 5: Install and start Mosquitto
+
+On Ubuntu:
+
+```bash
+sudo apt update
+sudo apt install mosquitto mosquitto-clients
+sudo systemctl start mosquitto
+```
+
+## 10. Running the ML Module
+
+### Train the synthetic dataset and classification models
+
+```bash
+python data/make_synthetic.py
+python classify.py
+```
+
+This generates the synthetic dataset and trains the classification models.
+
+### Run the decision engine
+
+```bash
+python decide.py
+```
+
+### Start the MQTT server
+
+```bash
+python serve.py
+```
+
+The server subscribes to incoming solar panel readings, processes them through the ML decision engine and publishes the resulting decisions.
+
+### Run the tests
+
+```bash
+python -m pytest test_decide.py -v
+```
+
+For model testing:
+
+```bash
+python test_model.py
+```
+
+## 11. Testing and Validation
+
+The decision engine has been tested using simulated scenarios, including:
+
+1. Normal solar panel operation.
+2. Fault detection and prevention of automatic cleaning.
+3. Hotspot detection and prevention of automatic cleaning.
+4. Dust detection when rainfall is expected.
+5. Economically beneficial dust cleaning.
+6. Low water tank level.
+7. Weather API unavailability.
+
+The MQTT communication pipeline has also been tested using simulated sensor readings through Mosquitto.
+
+The simulation demonstrated the following workflow:
+
+**Simulated Sensor Reading → MQTT Broker → ML Processing → Decision Generation → MQTT Decision Publishing**
+
+Actual ESP32 hardware validation and field testing are still required.
+
+## 12. Safety and Reliability
+
+SolarSentinel follows safety-first maintenance logic.
+
+- Hotspots must be inspected manually.
+- Hardware faults must be repaired manually.
+- Shading conditions must be inspected before maintenance.
+- Cleaning is postponed when rainfall is expected.
+- Cleaning is disabled when the water tank level is insufficient.
+- Cleaning is deferred when weather information is unavailable.
+- Financial benefits are evaluated before recommending cleaning.
+
+The ML system provides maintenance recommendations. Real-world hardware safety interlocks

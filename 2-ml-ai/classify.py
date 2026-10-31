@@ -37,7 +37,9 @@ BASE_FEATURES = [
     "history_power_w",
     "history_temp_mean",
     "power_trend_pct",
-    "temp_trend_c"
+    "temp_trend_c",
+    "light_spread_pct",
+    "light_min_ratio"
 ]
 
 CLEANING_FEATURES = [
@@ -57,6 +59,19 @@ def validate_grid(grid):
         raise ValueError("Invalid temperature values.")
 
     return grid
+
+
+def light_features(reading):
+    """How evenly the four corner light sensors see the sun. Uneven light = a shadow or passing cloud, not dirt."""
+    corners = reading.get("ldr_corners_lux")
+    if not corners or len(corners) < 2:
+        return {"light_spread_pct": 0.0, "light_min_ratio": 1.0}
+    corners = np.asarray(corners, dtype=float)
+    mean = max(float(corners.mean()), 1.0)
+    return {
+        "light_spread_pct": float((corners.max() - corners.min()) / mean * 100),
+        "light_min_ratio": float(corners.min() / max(float(corners.max()), 1.0)),
+    }
 
 
 def extract_grid_features(grid):
@@ -105,7 +120,9 @@ def prepare_training_features(df):
         "history_power_w",
         "history_temp_mean",
         "power_trend_pct",
-        "temp_trend_c"
+        "temp_trend_c",
+        "light_spread_pct",
+        "light_min_ratio"
     ]:
         features[column] = df[column]
 
@@ -138,6 +155,8 @@ def train_model():
         "history_temp_mean",
         "power_trend_pct",
         "temp_trend_c",
+        "light_spread_pct",
+        "light_min_ratio",
         "power_recovery_pct",
         "temperature_recovery_c",
         "hotspot_after_clean_c"
@@ -254,7 +273,8 @@ def build_prediction_features(reading, history=None, cleaning_result=None):
 
     voltage = float(reading["voltage_v"])
     current = float(reading["current_a"])
-    ldr = float(reading["ldr_lux"])
+    corners = reading.get("ldr_corners_lux")
+    ldr = float(np.mean(corners)) if corners else float(reading["ldr_lux"])      # average of the four corner sensors
 
     if not np.isfinite([voltage, current, ldr]).all():
         raise ValueError("Sensor reading contains invalid numbers.")
@@ -312,6 +332,7 @@ def build_prediction_features(reading, history=None, cleaning_result=None):
         "power_w": power,
         "power_loss_pct": power_loss,
         **extract_grid_features(grid),
+        **light_features(reading),
         "history_power_w": previous_power,
         "history_temp_mean": previous_temp_mean,
         "power_trend_pct": power_trend,

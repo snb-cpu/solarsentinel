@@ -141,6 +141,17 @@ class DecisionTests(unittest.TestCase):
         prediction.return_value = {"state": "fault"}
         self.assertFalse(decide(reading, cleaning_result=after, weather=self.WEATHER)["clean_now"])
 
+    @patch("decide.predict_panel")
+    def test_uneven_corner_light_is_a_shadow_not_dirt(self, prediction):
+        prediction.return_value = {"state": "dust"}
+        reading = sample_reading(); reading["current_a"] = 2.6
+        reading["ldr_corners_lux"] = [35000, 98000, 35000, 98000]
+        result = decide(reading, weather=self.WEATHER)
+        self.assertEqual(result["state"], "shading")
+        self.assertFalse(result["clean_now"])
+        reading["ldr_corners_lux"] = [60000] * 4                      # same power loss, even light: that is dirt
+        self.assertTrue(decide(reading, weather=self.WEATHER)["clean_now"])
+
     def test_any_grid_size_works(self):
         from heatmap import make_heatmap
         self.assertEqual(len(make_heatmap([[40, 41, 42, 41], [40, 50, 41, 41]])[0]), 4)

@@ -28,6 +28,8 @@ def builtin_decide(r, rain, ctx=None):
     if r["ldr_lux"] < MIN_LUX:
         return {**base, "state": "ok", "efficiency_loss_pct": 0.0, "clean_now": False, "loss_inr_per_day": 0.0, "reason": "Low sunlight (night or heavy cloud). Analysis paused."}
     exp_i = ISC_A * r["ldr_lux"] / 100000
+    corners = r.get("ldr_corners_lux") or []
+    uneven = len(corners) > 1 and (max(corners) - min(corners)) / max(sum(corners) / len(corners), 1) > 0.25   # corner light sensors disagree: a shadow or cloud
     loss = max(0.0, (1 - r["current_a"] / exp_i) * 100)
     cols = [statistics.mean(row[c] for row in t) for c in range(len(t[0]))]
     thr = 3 + 3 * min(1, r["ldr_lux"] / 80000)
@@ -35,6 +37,7 @@ def builtin_decide(r, rain, ctx=None):
     if hot and not ctx.get("washed_hot"): state = "dust"                 # first assume dirt (a dropping): wash once and see if it clears
     elif hot and time.time() < ctx.get("settle_until", 0): state = "dust"   # washed, give the panel time to cool before judging
     elif hot: state = "fault" if loss > 12 else "hotspot"
+    elif uneven and loss > 3: state = "shading"
     elif min(cols) < statistics.mean(flat) - 2 and loss > 20: state = "shading"
     elif loss > 3: state = "dust"
     else: state = "ok"
@@ -44,7 +47,7 @@ def builtin_decide(r, rain, ctx=None):
         why = "Local hot patch, probably a bird dropping or dirt. Washing first to find out." if go else "Washed. Waiting for the panel to cool, then checking if the hot spot is gone."
         return {**base, "state": state, "efficiency_loss_pct": round(loss, 1), "clean_now": go, "reason": why, "loss_inr_per_day": round(inr, 1), "hot": True}
     if state in ("fault", "hotspot"): go, why = False, "A cell is overheating and washing will not fix it. No water used. Send a technician."
-    elif state == "shading": go, why = False, "Part of the panel is in shade, not dirt. Washing will not help."
+    elif state == "shading": go, why = False, ("Uneven light across the panel (a shadow or passing cloud), not dirt. No wash." if uneven else "Part of the panel is in shade, not dirt. Washing will not help.")
     elif state == "ok": go, why = False, "Panel is clean and producing as expected."
     elif rain: go, why = False, "Dust detected, but rain is forecast within 48 h. Letting the rain clean it."
     elif inr > CLEAN_COST_INR: go, why = True, f"Dust is costing Rs {inr:.0f}/day, more than the Rs {CLEAN_COST_INR:.0f} wash. Cleaning now."

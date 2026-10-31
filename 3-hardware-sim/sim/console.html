@@ -62,12 +62,16 @@ pre{white-space:pre-wrap;font-size:12px;margin:0;max-height:150px;overflow:auto}
    <g class="fan"><circle cx="1000" cy="310" r="34" fill="none" stroke="#8fa9c2" stroke-width="2"/>
     <path d="M1000 310 L1000 280 A30 30 0 0 1 1026 295 Z M1000 310 L1026 325 A30 30 0 0 1 1000 340 Z M1000 310 L974 325 A30 30 0 0 1 974 295 Z" fill="#8fa9c2"/></g></g>
   <path class="pipe" d="M940 310 H900"/><text x="1000" y="392" text-anchor="middle" class="t">Air blower</text><text id="blowt" x="1000" y="408" text-anchor="middle" class="small">off</text>
-  <!-- LDR -->
-  <circle cx="860" cy="175" r="11" fill="#ffd166" stroke="#fff" stroke-width="2"/><text x="860" y="205" text-anchor="middle" class="small">LDR (sunlight)</text>
+  <!-- cloud shadow over the panel -->
+  <rect id="shadow" x="340" y="160" width="0" height="240" fill="#000" opacity="0"/>
+  <g id="cloudicon" opacity="0"><ellipse cx="0" cy="0" rx="70" ry="22" fill="#aab8c8"/><circle cx="-30" cy="-14" r="24" fill="#aab8c8"/><circle cx="14" cy="-22" r="30" fill="#aab8c8"/></g>
+  <!-- four corner light sensors (LDRs) -->
+  <g id="ldrs"></g>
+  <rect x="800" y="440" width="140" height="50" rx="8" fill="#16283c" stroke="#3a5a86" stroke-width="2"/><text x="870" y="461" text-anchor="middle" class="t">CD4051 #2</text><text x="870" y="478" text-anchor="middle" class="small">4 corner LDRs</text>
   <!-- sensor boxes -->
   <rect x="440" y="440" width="150" height="50" rx="8" fill="#16283c" stroke="#3a5a86" stroke-width="2"/><text x="515" y="461" text-anchor="middle" class="t">CD4051 mux</text><text id="muxt" x="515" y="478" text-anchor="middle" class="small">8 temp sensors</text>
   <rect x="620" y="440" width="160" height="50" rx="8" fill="#16283c" stroke="#3a5a86" stroke-width="2"/><text x="700" y="461" text-anchor="middle" class="t">V + I sensors</text><text id="vit" x="700" y="478" text-anchor="middle" class="small">-</text>
-  <path class="wire" d="M515 410 V440"/><path class="wire" d="M700 410 V440"/><path class="wire" d="M860 186 V425 H760 V440"/>
+  <path class="wire" d="M515 410 V440"/><path class="wire" d="M700 410 V440"/><path class="wire" id="wl" d="M870 490 V520 H520 V540"/>
   <!-- ESP32 -->
   <rect x="380" y="540" width="420" height="140" rx="10" fill="#0f2f3f" stroke="#4fc3f7" stroke-width="3"/>
   <text x="590" y="590" text-anchor="middle" class="t" style="font-size:15px">ESP32</text>
@@ -95,7 +99,7 @@ pre{white-space:pre-wrap;font-size:12px;margin:0;max-height:150px;overflow:auto}
  <section class="card"><h3>Cause trouble &middot; panel <span id="selname"></span></h3>
   <div class="grp">Panel</div><div id="psel"></div>
   <div class="grp">On that panel</div>
-  <button data-c="dirty">Make dirty now</button><button data-c="bird">Bird dropping</button><button data-c="shade" data-f="shade">Shade</button><button data-c="hotspot" data-f="hotspot">Hotspot</button><button data-c="crack" data-f="crack">Cracked cell</button><button data-c="repair">Repair faults</button>
+  <button data-c="cloud">Passing cloud</button><button data-c="dirty">Make dirty now</button><button data-c="bird">Bird dropping</button><button data-c="shade" data-f="shade">Shade</button><button data-c="hotspot" data-f="hotspot">Hotspot</button><button data-c="crack" data-f="crack">Cracked cell</button><button data-c="repair">Repair faults</button>
   <div class="grp">Whole site</div>
   <button data-c="storm" data-g="storm">Dust storm (1 h)</button><button data-c="rain_forecast" data-g="forecast_rain">Rain forecast</button><button data-c="timer" data-g="timer">2 h backup timer</button>
   <div class="grp">Time scale: <span id="spv"></span></div>
@@ -120,10 +124,14 @@ for(let c=0;c<4;c++){const nx=400+c*130;mk('rect',{x:nx-7,y:116,width:14,height:
  for(let k=0;k<5;k++){const d=mk('line',{x1:nx+(k-2)*8,x2:nx+(k-2)*8,y1:136,y2:150},$('spray'));d.setAttribute('class','drop');d.style.animationDelay=(k*0.16+(c%2)*0.08)+'s'}}
 for(let k=0;k<9;k++){const y=175+k*27,l=mk('line',{x1:880,x2:830,y1:y,y2:y},$('air'));l.setAttribute('class','streak');l.style.animationDelay=(k*0.07)+'s'}
 // pins
-const PINS=[['GPIO34','V',410,540,'t'],['GPIO35','I',465,540,'t'],['GPIO32','LDR',520,540,'t'],['GPIO36','MUX',575,540,'t'],['GPIO25','S0',630,540,'t'],['GPIO26','S1',685,540,'t'],['GPIO27','S2',740,540,'t'],['GPIO16','valve',800,585,'r'],['GPIO17','blower',800,625,'r']];
+const PINS=[['GPIO34','V',410,540,'t'],['GPIO35','I',465,540,'t'],['GPIO39','LDR',520,540,'t'],['GPIO36','MUX',575,540,'t'],['GPIO25','S0',630,540,'t'],['GPIO26','S1',685,540,'t'],['GPIO27','S2',740,540,'t'],['GPIO16','valve',800,585,'r'],['GPIO17','blower',800,625,'r']];
 const pinEl={};
 PINS.forEach(([g,n,x,y,s])=>{const b=mk('circle',{cx:x,cy:y,r:7,fill:'#1d5470',stroke:'#4fc3f7','stroke-width':2},$('pins'));
  if(s==='t'){mk('text',{x,y:y+22,'text-anchor':'middle',class:'t',style:'font-size:11px'},$('pins')).textContent=n;mk('text',{x,y:y+34,'text-anchor':'middle',class:'small'},$('pins')).textContent=g}else mk('text',{x:x-12,y:y+4,'text-anchor':'end',class:'small'},$('pins')).textContent=n+' '+g;pinEl[g]=b});
+const LDRP=[[330,150],[890,150],[330,410],[890,410]],ldrDot=[],ldrTxt=[];
+LDRP.forEach(([x,y],k)=>{mk('line',{x1:x,y1:y,x2:870,y2:440,stroke:'#546e8f','stroke-width':1.2,'stroke-dasharray':'3 4'},$('ldrs'));});
+LDRP.forEach(([x,y],k)=>{ldrDot.push(mk('circle',{cx:x,cy:y,r:11,fill:'#ffd166',stroke:'#fff','stroke-width':2},$('ldrs')));
+ ldrTxt.push(mk('text',{x:x+(k%2?16:-16),y:y+(k<2?-14:24),'text-anchor':k%2?'start':'end',class:'t',style:'font-size:12px'},$('ldrs')))});
 // code listing
 const CODE=[['clean','  cleanLoop();                         // state machine: water -> air -> idle'],['poll','  if (every 1 s) pollCommand();        // GET /api/command from the brain'],['rep','  if (every REPORT_MS) publishReading(); // read pins, POST /api/reading'],['timer','  if (IDLE && 2 h passed) startClean();  // backup timer']];
 $('code').innerHTML='<div class="cm">void loop() {</div>'+CODE.map(c=>`<div id="c_${c[0]}">${c[1]}</div>`).join('')+'<div class="cm">}</div>';
@@ -140,6 +148,11 @@ function render(){if(!S)return;const P=S.panels[sel],N=P.node,now=S.now;
  // cells: heat from true cell temperature, relative to this panel
  const med=[...P.temps].sort((a,b)=>a-b)[4],lo=Math.min(Math.min(...P.temps),med-5),hi=Math.max(Math.max(...P.temps),med+7);
  P.temps.forEach((t,i)=>{cells[i].setAttribute('fill',heat((t-lo)/(hi-lo)*.8+.1));ctext[i].textContent=t.toFixed(0)+'°';dust[i].setAttribute('opacity',Math.min(.75,(P.soil[i]-P.stuck[i])*2.2));bird[i].setAttribute('opacity',Math.min(.95,P.stuck[i]*2.2))});
+ // light sensors and a passing cloud
+ const lc=N.last.corners||[0,0,0,0],lm=lc.reduce((a,b)=>a+b,0)/4,uneven=(Math.max(...lc)-Math.min(...lc))/Math.max(lm,1)>.25;
+ lc.forEach((l,k)=>{ldrDot[k].setAttribute('fill',`hsl(45 100% ${18+Math.min(1,l/100000)*47}%)`);ldrDot[k].setAttribute('stroke',uneven?'#ff6b4a':'#fff');ldrTxt[k].textContent=Math.round(l/1000)+'k lux';ldrTxt[k].style.fill=uneven?'#ff9d85':''});
+ if(P.cloud_x===null||P.cloud_x===undefined){$('shadow').setAttribute('opacity',0);$('cloudicon').setAttribute('opacity',0)}
+ else{const a=Math.max(0,P.cloud_x-1.3),b=Math.min(1,P.cloud_x);$('shadow').setAttribute('x',340+a*548);$('shadow').setAttribute('width',Math.max(0,(b-a)*548));$('shadow').setAttribute('opacity',.42);$('cloudicon').setAttribute('transform',`translate(${340+(P.cloud_x-.65)*548},95)`);$('cloudicon').setAttribute('opacity',.9)}
  // actuators
  const v=N.cs==='WATER',b=N.cs==='AIR';
  $('spray').classList.toggle('spray',v);$('spray').style.display=v?'':'none';$('air').style.display=b?'':'none';
@@ -151,7 +164,7 @@ function render(){if(!S)return;const P=S.panels[sel],N=P.node,now=S.now;
  pinEl.GPIO16.setAttribute('fill',v?'#2ecc71':'#1d5470');pinEl.GPIO17.setAttribute('fill',b?'#2ecc71':'#1d5470');
  const h=Math.round(1.86*N.tank);$('water').setAttribute('height',h);$('water').setAttribute('y',476-h);$('tankpct').textContent=N.tank+'%';
  // pins blinking while it samples (just after a report)
- const rec=now-S.activity.report<.8;['GPIO34','GPIO35','GPIO32','GPIO36','GPIO25','GPIO26','GPIO27'].forEach(g=>pinEl[g].setAttribute('fill',rec?'#ffb703':'#1d5470'));['w1','w2'].forEach(id=>$(id).classList.toggle('act',rec));
+ const rec=now-S.activity.report<.8;['GPIO34','GPIO35','GPIO39','GPIO36','GPIO25','GPIO26','GPIO27'].forEach(g=>pinEl[g].setAttribute('fill',rec?'#ffb703':'#1d5470'));['w1','w2'].forEach(id=>$(id).classList.toggle('act',rec));
  $('wifi').setAttribute('opacity',rec||now-S.activity.poll<.4?1:.25);$('wifit').textContent=rec?'POST reading':(now-S.activity.poll<.4?'GET command':'API link');
  $('vit').textContent=N.last.v+' V   '+N.last.a+' A';$('muxt').textContent='8 temp sensors';
  $('espstate').textContent='state '+N.cs+'   valve '+(v?'ON':'off')+'   blower '+(b?'ON':'off');
@@ -166,7 +179,7 @@ function render(){if(!S)return;const P=S.panels[sel],N=P.node,now=S.now;
  $('adc').innerHTML='<tr><th>Input</th><th>pin mV</th><th>firmware turns it into</th></tr>'+
   `<tr><td>GPIO34 panel voltage</td><td>${a.volt_mv}</td><td>${a.volt_mv/1000} V x ${C.volt_div} = ${N.last.v} V</td></tr>`+
   `<tr><td>GPIO35 current sensor</td><td>${a.curr_mv}</td><td>(${a.curr_mv/1000} - ${C.zero}) / ${C.vpa} = ${N.last.a} A</td></tr>`+
-  `<tr><td>GPIO32 LDR</td><td>${a.ldr_mv}</td><td>${N.last.lux} lux</td></tr>`+
+  a.ldr_mv.map((m,k)=>`<tr><td>GPIO39 LDR ${['top-left','top-right','bottom-left','bottom-right'][k]} (mux ch ${k})</td><td>${m}</td><td>${(N.last.corners||[])[k]} lux</td></tr>`).join('')+
   a.temp_mv.map((m,i)=>`<tr><td>mux channel ${i} (R${Math.floor(i/4)+1} C${i%4+1})</td><td>${m}</td><td>${(m/C.mvc).toFixed(1)} °C</td></tr>`).join('');
  $('world').textContent=`Dust on ${P.id}: ${P.soil_pct}%   Storm: ${S.storm}   Rain forecast: ${S.forecast_rain}   Raining: ${S.raining}`;
  $('log').textContent=S.events.join('\n');

@@ -18,7 +18,7 @@ What it shows: the same `solarsentinel.ino` that goes on the real ESP32, running
 |---|---|---|
 | Pot V (panel voltage) | D34 | 34 |
 | Pot I (current) | D35 | 35 |
-| Pot L (light) | VN | 39 |
+| Pot L (light) | VN | 39 (one dial stands for all four corner LDRs; Wokwi has no spare pins for four) |
 | NTC 1, 2, 3 | D32, D33, VP | 32, 33, 36 |
 | Relay 1 (valve) IN | RX2 | 16 |
 | Relay 2 (blower) IN | TX2 | 17 |

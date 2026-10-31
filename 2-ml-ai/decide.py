@@ -5,7 +5,7 @@ from datetime import datetime, timezone
 
 import requests
 
-from classify import predict_panel, estimate_expected_power, LDR_FULL_SCALE_LUX
+from classify import predict_panel, estimate_expected_power, light_features, LDR_FULL_SCALE_LUX
 from heatmap import make_heatmap
 from weather import rain_expected
 from forecast import forecast_kwh_7d
@@ -17,6 +17,7 @@ MINIMUM_TANK_LEVEL = 20
 MIN_LUX = 20000                  # below this the panel is in the dark or under heavy cloud: no analysis
 STRING_AREA_M2 = 6.8             # each node watches a 1.5 kW string; forecast_kwh_7d is per square metre
 PEAK_SUN_HOURS = 4.8             # clear-day irradiance in kWh/m2/day, scaled by the weather feed
+UNEVEN_LIGHT_PCT = 25.0          # corner light sensors disagree by more than this: a shadow or passing cloud, not dirt
 HOT_PATCH_C = 5.0                # a cell this far above the median is a hot patch: wash once to find out if it is dirt
 
 SITE_LATITUDE = float(os.getenv("SOLAR_LATITUDE", "12.9716"))
@@ -92,10 +93,14 @@ def decide(reading, history=None, cleaning_result=None, weather=None):
 
     prediction = predict_panel(reading, history=history, cleaning_result=cleaning_result)
     state = prediction["state"]
+    light = light_features(reading)
+    uneven = light["light_spread_pct"] > UNEVEN_LIGHT_PCT
+    if uneven and state in ("dust", "ok"):
+        state = "shading"                                 # never call a shadow dirt
     expected_power = estimate_expected_power(lux, float(grid.mean()))
     actual_power = float(reading["voltage_v"]) * float(reading["current_a"])
     efficiency_loss = round(max(0.0, min(100.0, (expected_power - actual_power) / expected_power * 100)), 2)
-    out.update(state=state, efficiency_loss_pct=efficiency_loss, model_score_pct=prediction.get("model_score_pct", 0.0),
+    out.update(state=state, efficiency_loss_pct=efficiency_loss, light_spread_pct=round(light["light_spread_pct"], 1), model_score_pct=prediction.get("model_score_pct", 0.0),
                diagnosis_stage=prediction.get("diagnosis_stage", "before_cleaning"))
 
     # weather and forecast (from the feed; Open-Meteo only if no feed was given)
@@ -119,7 +124,8 @@ def decide(reading, history=None, cleaning_result=None, weather=None):
         out["reason"] = (f"{'Cracked cell' if state == 'fault' else 'Overheating cell'} confirmed"
                          f"{' after a wash' if cleaning_result else ''}. A wash will not fix it, so no water is used. Send a technician.")
     elif state == "shading":
-        out["reason"] = "Part of the panel is in shade, not dirt. Washing will not help. Check for nearby objects."
+        out["reason"] = ("Uneven light across the panel (a shadow or passing cloud), not dirt. No wash." if uneven
+                         else "Part of the panel is in shade, not dirt. Washing will not help. Check for nearby objects.")
     elif state == "dust":
         if not tank_ok:
             out["reason"] = "Dust detected, but the water tank is too low."

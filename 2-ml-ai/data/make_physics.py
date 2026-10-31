@@ -22,7 +22,7 @@ CFG = load_cfg()
 
 def episode(label, rng):
     w = World(start_hour=rng.uniform(9.0, 14.5), dust_mult=rng.uniform(0.7, 1.4))
-    w.cloud = rng.uniform(0.0, 0.35); w.wind = rng.uniform(0.5, 5.0)
+    w.cloud = rng.uniform(0.0, 0.35); w.wind = rng.uniform(0.5, 5.0); pending_cloud = None
     if label == "ok":
         w.dust = [rng.uniform(0.0, 0.015) for _ in range(N)]
     elif label == "dust":
@@ -30,12 +30,15 @@ def episode(label, rng):
         w.dust = [min(0.4, level * rng.uniform(0.6, 1.4)) for _ in range(N)]
         if rng.random() < 0.4: w.stuck[rng.randrange(N)] = rng.uniform(0.3, 0.6)      # a bird dropping: hot patch that washes off
     elif label == "shading":
-        w.faults["shade"] = True; w.dust = [rng.uniform(0, 0.04) for _ in range(N)]
+        if rng.random() < 0.5: w.faults["shade"] = True         # a fixed shadow (a pole, a wall)
+        else: pending_cloud = rng.uniform(0.1, 2.0)             # a cloud passing over, set after the panel has settled
+        w.dust = [rng.uniform(0, 0.04) for _ in range(N)]
     elif label == "hotspot":
         w.faults["hotspot"] = True; w.dust = [rng.uniform(0, 0.03) for _ in range(N)]
     elif label == "fault":
         w.faults["crack"] = True; w.dust = [rng.uniform(0, 0.05) for _ in range(N)]
     w.step(2400, 0, False, False)                        # settle thermally
+    if pending_cloud is not None: w.cloud_x = pending_cloud
     n = Node(w, CFG, "P1")
     stamp = lambda r: {**r, "ts": "2026-01-01T00:00:00Z"}
     old = stamp(n.reading()); w.step(360, 0, False, False); cur = stamp(n.reading())

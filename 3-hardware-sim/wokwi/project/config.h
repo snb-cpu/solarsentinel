@@ -9,7 +9,8 @@
 // ---- analog inputs (ADC1) ----
 #define PIN_VOLT 34                // panel voltage via resistor divider
 #define PIN_CURR 35                // current sensor output
-#define PIN_LDR  32                // LDR in a divider with a fixed resistor
+#define PIN_LDR  39                // common pin of a SECOND CD4051 (shares the select lines): 4 LDRs on channels 0..3 = top-left, top-right, bottom-left, bottom-right corners
+#define LDR_COUNT 4                // corner light sensors, so a shadow or cloud is not mistaken for dirt
 #define PIN_MUX  36                // CD4051 common pin -> temperature sensors 0..7
 #define PIN_MUX_S0 25
 #define PIN_MUX_S1 26

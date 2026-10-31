@@ -10,6 +10,7 @@ The three parts talk through these JSON shapes. Change them only after telling t
   "voltage_v": 18.2,
   "current_a": 4.1,
   "ldr_lux": 54000,
+  "ldr_corners_lux": [53000, 55000, 54000, 54500],
   "temps_c": [[41.2, 41.5, 41.0, 41.4], [41.3, 47.9, 41.1, 41.2]],
   "tank_level_pct": 70,
   "clean_state": 0,
@@ -17,6 +18,7 @@ The three parts talk through these JSON shapes. Change them only after telling t
 }
 ```
 `temps_c` is the thermal grid: 2 rows x 4 columns = 8 analog temperature sensors under each panel (one CD4051 mux). Several panels (P1, P2, P3) each have their own node.
+`ldr_lux` is the average of the four corner light sensors (top-left, top-right, bottom-left, bottom-right). If they disagree by more than 25% the light is uneven: a shadow or passing cloud, never call that dirt.
 `clean_state`: 0 idle, 1 water flush, 2 air dry. `sim_clock` exists only in the simulator (the real ESP32 has no clock; the API stamps `ts`).
 
 ## 2. Decision (ml -> hardware, ui)

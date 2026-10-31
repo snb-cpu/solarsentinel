@@ -38,7 +38,7 @@ class Node:
         self.last_clean_sim = 0.0
         self.timer_on = False        # off by default so the demo shows the AI deciding; toggle in the console
         self.events = []
-        self.adc = {"volt_mv": 0, "curr_mv": 0, "ldr_mv": 0, "temp_mv": [0] * 8}
+        self.adc = {"volt_mv": 0, "curr_mv": 0, "ldr_mv": [0] * 4, "temp_mv": [0] * 8}
         self.last = {}
     # ---- ADC ----
     def adc_mv(self, v):
@@ -57,12 +57,16 @@ class Node:
         vp = self.adc_volts(v_true / self.div_real); v = vp * self.c["VOLT_DIV"]
         ip = self.adc_volts(self.zero_real + 0.100 * i_true)
         a = max((ip - self.c["CURR_ZERO_V"]) / self.c["CURR_V_PER_A"], 0.0)
-        lp = self.adc_volts(self.w.lux() / self.c["LDR_MAX_LUX"] * 3.3); lux = lp / 3.3 * self.c["LDR_MAX_LUX"]
-        self.adc.update(volt_mv=round(vp * 1000, 1), curr_mv=round(ip * 1000, 1), ldr_mv=round(lp * 1000, 1))
+        corners = []                                         # four LDRs on the second mux, read one by one like the firmware
+        for k, true_lux in enumerate(self.w.lux_corners()):
+            lp = self.adc_volts(true_lux / self.c["LDR_MAX_LUX"] * 3.3); self.adc["ldr_mv"][k] = round(lp * 1000, 1)
+            corners.append(lp / 3.3 * self.c["LDR_MAX_LUX"])
+        lux = sum(corners) / len(corners)
+        self.adc.update(volt_mv=round(vp * 1000, 1), curr_mv=round(ip * 1000, 1))
         R, C = int(self.c["GRID_ROWS"]), int(self.c["GRID_COLS"])
         grid = [[round(self.read_temp(r * C + k), 1) for k in range(C)] for r in range(R)]
-        self.last = {"v": round(v, 2), "a": round(a, 2), "lux": round(lux)}
-        return {"panel_id": self.pid, "voltage_v": round(v, 2), "current_a": round(a, 2), "ldr_lux": round(lux),
+        self.last = {"v": round(v, 2), "a": round(a, 2), "lux": round(lux), "corners": [round(x) for x in corners]}
+        return {"panel_id": self.pid, "voltage_v": round(v, 2), "current_a": round(a, 2), "ldr_lux": round(lux), "ldr_corners_lux": [round(x) for x in corners],
                 "temps_c": grid, "tank_level_pct": round(self.w.tank),
                 "clean_state": {"IDLE": 0, "WATER": 1, "AIR": 2}[self.cs],
                 "sim_clock": f"Day {self.w.day()} {int(self.w.hour()):02d}:{int(self.w.hour() % 1 * 60):02d}"}
@@ -143,7 +147,7 @@ class Sim:
                 "now": time.time(), "activity": self.act, "cfg": {"auto_s": self.nodes[0].c["AUTO_CLEAN_MS"] / 1000, "volt_div": self.nodes[0].c["VOLT_DIV"], "zero": self.nodes[0].c["CURR_ZERO_V"], "vpa": self.nodes[0].c["CURR_V_PER_A"], "mvc": self.nodes[0].c["TEMP_MV_PER_C"]},
                 "panels": [{"id": n.pid, "soil_pct": round(w.mean_soil() * 100, 1), "tank": round(w.tank), "faults": w.faults, "node_state": n.cs,
                             "valve": n.valve, "blower": n.blower, "temps": [round(x, 1) for x in w.tcell], "sensors": [round(x, 1) for x in w.tback],
-                            "soil": [round(w.soil(i), 2) for i in range(len(w.dust))], "stuck": [round(x, 2) for x in w.stuck],
+                            "cloud_x": None if w.cloud_x is None else round(w.cloud_x, 2), "soil": [round(w.soil(i), 2) for i in range(len(w.dust))], "stuck": [round(x, 2) for x in w.stuck],
                             "node": {"cs": n.cs, "elapsed_ms": round(time.time() * 1000 - n.cs_start) if n.cs != "IDLE" else 0, "total_ms": n.water_ms if n.cs == "WATER" else n.air_ms,
                                      "timer_on": n.timer_on, "timer_in_s": round(n.c["AUTO_CLEAN_MS"] / 1000 - (w.t - n.boot_sim - n.last_clean_sim)), "adc": n.adc, "last": n.last, "tank": round(w.tank)}} for w, n in zip(self.worlds, self.nodes)],
                 "events": sorted(sum([[f"{n.pid} {e}" for e in n.events[-6:]] for n in self.nodes], []))[-12:]}
@@ -154,6 +158,7 @@ class Sim:
         elif c == "storm": self.worlds[0].storm_until = self.worlds[0].t + 3600
         elif c == "bird": w.stuck[random.randrange(len(w.stuck))] = 0.5
         elif c in ("crack", "hotspot", "shade"): w.faults[c] = not w.faults[c]
+        elif c == "cloud": w.cloud_x = 0.0
         elif c == "repair": w.faults = {"crack": False, "hotspot": False, "shade": False}
         elif c == "rain_forecast": w0 = self.worlds[0]; w0.forecast_rain = not w0.forecast_rain; w0.rain_at = None
         elif c == "timer":

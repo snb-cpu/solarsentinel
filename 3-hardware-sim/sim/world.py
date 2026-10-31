@@ -21,6 +21,8 @@ ROWS, COLS = 2, 4
 N = ROWS * COLS
 HOT_CELL, CRACK_CELL = 5, 3          # where the hotspot fault and the cracked cell sit
 ISC_A, VOC_V, LUX_PER_WM2 = 5.5, 18.5, 100.0
+CLOUD_W, CLOUD_DEPTH = 1.3, 0.65    # width (in panel widths) and darkness of a passing cloud's shadow; it sweeps left to right
+LDR_CORNERS = [(0.0, 0.0), (1.0, 0.0), (0.0, 1.0), (1.0, 1.0)]   # top-left, top-right, bottom-left, bottom-right
 C_TH = 9000.0                        # J/m2K thermal mass of a cell patch
 H_BASE, H_WIND = 16.0, 5.0           # W/m2K, plus per m/s of wind
 K_LAT = 6.0                          # W/m2K cell-to-cell conduction
@@ -43,6 +45,7 @@ class World:
         self.rain_at, self.rain_until, self.storm_until = None, 0.0, 0.0
         self.dust_rate = 0.015 * dust_mult   # dust per sim hour
         self.faults = {"crack": False, "hotspot": False, "shade": False}
+        self.cloud_x = None                # a passing cloud: x position (0 = left edge of the panel, 1 = right) of a shadow band, or None
         self.tank = 70.0                   # percent
         self.tcell = [self.ambient() + 12.0] * N
         self.tback = list(self.tcell)
@@ -57,8 +60,15 @@ class World:
     def ambient(self): return 27 + 7 * math.sin(math.pi * (self.hour() - 9) / 12) - (4 if self.raining else 0)
     def soil(self, i): return min(0.7, self.dust[i] + self.stuck[i])
     def mean_soil(self): return sum(self.soil(i) for i in range(N)) / N
-    def transmit(self, i):                                  # fraction of sunlight the cell actually gets
-        return (1 - self.soil(i)) * (0.4 if self.faults["shade"] and i % COLS == 0 else 1.0)
+    def cloud_factor(self, x):                              # a moving shadow band across the panel
+        if self.cloud_x is None: return 1.0
+        sig = lambda z: 1 / (1 + math.exp(-max(-30.0, min(30.0, z))))
+        return 1.0 - CLOUD_DEPTH * (sig((self.cloud_x - x) / 0.05) - sig((self.cloud_x - CLOUD_W - x) / 0.05))   # shadow covers [cloud_x - W, cloud_x]
+    def light_factor_at(self, x):                           # how much sun reaches a point at horizontal position x (0..1)
+        return (0.4 if self.faults["shade"] and x < 0.5 else 1.0) * self.cloud_factor(x)
+    def light_factor(self, i): return self.light_factor_at(((i % COLS) + 0.5) / COLS)
+    def transmit(self, i):                                  # fraction of sunlight the cell actually gets (dirt x shade x cloud)
+        return (1 - self.soil(i)) * self.light_factor(i)
     def string_factor(self):                                # series string: the weak cells drag the rest down
         tr = [self.transmit(i) for i in range(N)]
         return 0.75 * sum(tr) / N + 0.25 * min(tr), tr
@@ -78,6 +88,9 @@ class World:
                 self.raining, self.rain_until, self.rain_at, self.forecast_rain = True, self.t + 1.5 * 3600, None, False
         elif self.t >= self.rain_until:
             self.raining = False
+        if self.cloud_x is not None:
+            self.cloud_x += dt / 600                            # crosses the panel in 10 simulated minutes
+            if self.cloud_x > 2.4: self.cloud_x = None
         storm = self.t < self.storm_until
         target_wind = 8.0 if storm else 2.0
         self.wind = min(10.0, max(0.0, self.wind + (target_wind - self.wind) * dt / 1800 + 0.5 * math.sqrt(dt / 60) * random.gauss(0, 1)))
@@ -100,7 +113,7 @@ class World:
         isf, tr = self.string_factor()
         new = []
         for i in range(N):
-            inc = g0 * (0.4 if self.faults["shade"] and i % COLS == 0 else 1.0)
+            inc = g0 * self.light_factor(i)
             dirt = self.soil(i)
             absorbed = inc * (0.80 * (1 - dirt) + 0.35 * dirt)
             elec = ETA * g0 * min(tr[i], isf)
@@ -120,4 +133,6 @@ class World:
         i_a = ISC_A * g * isf / 1000 * (1 + 0.0005 * (tavg - 25)) * (0.8 if self.faults["crack"] else 1.0)
         v = VOC_V * (1 - 0.004 * (tavg - 25)) * (0.85 + 0.15 * min(1.0, g / 200)) if g > 1 else 0.0
         return max(v, 0.0), max(i_a, 0.0)
-    def lux(self): return self.irradiance() * LUX_PER_WM2
+    def lux_corners(self):                                  # what the four LDRs see (they sit beside the panel, so no dirt, but the same shadows)
+        return [self.irradiance() * LUX_PER_WM2 * self.light_factor_at(x) for x, _ in LDR_CORNERS]
+    def lux(self): return sum(self.lux_corners()) / len(LDR_CORNERS)

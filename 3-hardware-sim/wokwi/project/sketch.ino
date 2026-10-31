@@ -44,8 +44,15 @@ float readTempC(int ch) {            // Wokwi NTC module (beta 3950), as in the 
   return 1.0f / (log(1.0f / (4095.0f / raw - 1.0f)) / 3950.0f + 1.0f / 298.15f) - 273.15f + TEMP_OFFSET_C[ch];
 }
 #endif
-float readLux() {                    // LDR divider: more light -> higher voltage (wire LDR to 3.3V side)
-  return adcVolts(PIN_LDR) / 3.3f * LDR_MAX_LUX;
+float readLdrLux(int k) {            // corner k: select the channel on the LDR mux (same select lines), settle, read
+#ifndef WOKWI
+  digitalWrite(PIN_MUX_S0, k & 1);
+  digitalWrite(PIN_MUX_S1, (k >> 1) & 1);
+  digitalWrite(PIN_MUX_S2, (k >> 2) & 1);
+  delay(5);
+  analogReadMilliVolts(PIN_LDR);     // throw away first sample after switching
+#endif
+  return adcVolts(PIN_LDR) / 3.3f * LDR_MAX_LUX;   // LDR divider: more light -> higher voltage (Wokwi: one dial stands for all four)
 }
 int tankPct() {
   if (PIN_TANK < 0) return -1;       // -1 = no tank sensor
@@ -65,10 +72,12 @@ void publishReading() {
     n += snprintf(grid + n, sizeof(grid) - n, "]");
   }
   snprintf(grid + n, sizeof(grid) - n, "]");
-  char msg[360];
+  float lux[LDR_COUNT];
+  for (int k = 0; k < LDR_COUNT; k++) lux[k] = readLdrLux(k);
+  char msg[440];
   snprintf(msg, sizeof(msg),
-    "{\"panel_id\":\"%s\",\"voltage_v\":%.2f,\"current_a\":%.2f,\"ldr_lux\":%.0f,\"temps_c\":%s,\"tank_level_pct\":%d,\"clean_state\":%d}",
-    PANEL_ID, v, a, readLux(), grid, tankPct(), (int)cs);
+    "{\"panel_id\":\"%s\",\"voltage_v\":%.2f,\"current_a\":%.2f,\"ldr_lux\":%.0f,\"ldr_corners_lux\":[%.0f,%.0f,%.0f,%.0f],\"temps_c\":%s,\"tank_level_pct\":%d,\"clean_state\":%d}",
+    PANEL_ID, v, a, (lux[0] + lux[1] + lux[2] + lux[3]) / 4, lux[0], lux[1], lux[2], lux[3], grid, tankPct(), (int)cs);
   Serial.println(msg);
   if (WiFi.status() != WL_CONNECTED) return;
   HTTPClient http; http.setTimeout(1500);

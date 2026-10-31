@@ -11,6 +11,9 @@ python ml_worker.py --api http://<IP-OF-THE-MAC>:8000
 You will see one line per panel per reading: state, power lost, rupees lost per day, WASH NOW, which model decided and how sure it is, and why. `--quiet` prints only changes.
 If you stop it, the API switches to its built-in rules after 8 seconds and switches back when you restart.
 
+## Four corner light sensors
+`ldr_corners_lux` has the light at the four panel corners. If they disagree by more than 25% the light is uneven (a shadow or a passing cloud) and the panel is never called dirty: no wash. Their average is used for the expected power, so an evenly overcast sky does not look like dirt either. The classifier has two light features (`light_spread_pct`, `light_min_ratio`) and `decide.py` has a hard guard on top. The training data includes passing clouds and fixed shadows.
+
 ## How a decision is made (`decide.py`)
 1. `classify.py` RandomForest, two models: **before-wash** and **after-wash**. The after-wash model sees what the wash changed (power recovered, temperature dropped, hot spot left) and is what separates dirt from a real fault.
 2. `heatmap.py` heat of each cell above the median (any grid size).

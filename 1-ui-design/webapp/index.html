@@ -66,7 +66,7 @@ const STOPS=[[30,[20,30,110]],[36,[30,130,200]],[41,[40,190,170]],[46,[250,225,6
 function heat(f){f=Math.min(1,Math.max(0,f));const t=30+f*32;for(let k=1;k<STOPS.length;k++){if(t<=STOPS[k][0]){const[a,ca]=STOPS[k-1],[b,cb]=STOPS[k],u=(t-a)/(b-a);return ca.map((c,j)=>c+(cb[j]-c)*u)}}return STOPS[STOPS.length-1][1]}
 const GRAD='linear-gradient(90deg,'+STOPS.map(([t,c])=>`rgb(${c}) ${(t-30)/32*100}%`).join(',')+')';
 const off=document.createElement('canvas');off.width=96;off.height=48;const octx=off.getContext('2d');
-function drawHeat(cv,temps,pulse){
+function drawHeat(cv,temps,pulse,corners){
  const R=temps.length,C=temps[0].length,W=cv.width,H=cv.height,ctx=cv.getContext('2d');
  const flat0=temps.flat(),s0=[...flat0].sort((a,b)=>a-b),med0=s0[Math.floor(flat0.length/2)],lo=Math.min(s0[0],med0-5),hi=Math.max(s0[s0.length-1],med0+7),img=octx.createImageData(96,48),sig=0.17;
  for(let y=0;y<48;y++)for(let x=0;x<96;x++){const u=(x+.5)/96,v=(y+.5)/48;let sw=0,st=0;
@@ -77,6 +77,11 @@ function drawHeat(cv,temps,pulse){
  ctx.strokeStyle='rgba(255,255,255,.28)';ctx.lineWidth=2;
  for(let c=1;c<C;c++){ctx.beginPath();ctx.moveTo(W*c/C,0);ctx.lineTo(W*c/C,H);ctx.stroke()}
  for(let r=1;r<R;r++){ctx.beginPath();ctx.moveTo(0,H*r/R);ctx.lineTo(W,H*r/R);ctx.stroke()}
+ // four corner light sensors: dim or uneven light means shade or cloud, not dirt
+ if(corners&&corners.length===4){const m=corners.reduce((a,b)=>a+b,0)/4,uneven=(Math.max(...corners)-Math.min(...corners))/Math.max(m,1)>.25,pos=[[0,0],[1,0],[0,1],[1,1]];
+  ctx.font=`bold ${Math.round(H/16)}px system-ui`;
+  corners.forEach((l,k)=>{const x=pos[k][0]?W-H/9:H/9,y=pos[k][1]?H-H/14:H/14;ctx.fillStyle=uneven?'#ff6b4a':'#ffd166';ctx.beginPath();ctx.arc(x,y,H/32,0,7);ctx.fill();
+   ctx.fillStyle='#fff';ctx.shadowColor='#000';ctx.shadowBlur=4;ctx.textAlign=pos[k][0]?'right':'left';ctx.fillText(Math.round(l/1000)+'k',pos[k][0]?x-H/26:x+H/26,y);ctx.shadowBlur=0});ctx.textAlign='center'}
  // sensor dots + readings, hottest point ringed
  const flat=temps.flat(),sorted=[...flat].sort((a,b)=>a-b),med=sorted[Math.floor(flat.length/2)],mx=Math.max(...flat);
  ctx.font=`bold ${Math.round(H/11)}px system-ui`;ctx.textAlign='center';ctx.textBaseline='middle';
@@ -96,7 +101,7 @@ function card(id){if(cards[id])return cards[id];
  <div class="reason"></div><button>Clean this panel now</button>`;
  el.querySelector('button').onclick=()=>fetch(API+'/api/clean',{method:'POST',body:JSON.stringify({panel_id:id})});
  el.querySelector('.bar').style.background=GRAD;$('panels').appendChild(el);return cards[id]={el,cv:el.querySelector('canvas'),pill:el.querySelector('.pill'),w:el.querySelector('.fx.water'),a:el.querySelector('.fx.air'),last:null}}
-let pulse=0;setInterval(()=>{pulse=(Math.sin(Date.now()/300)+1)/2;for(const k in cards){const c=cards[k];if(c.last){drawHeat(c.cv,c.last,pulse);const[l,h]=c.cv.dataset.range.split('|');c.el.querySelector('.lo').textContent=l+'\u00b0 cooler';c.el.querySelector('.hi').textContent='hotter '+h+'\u00b0'}}},120);
+let pulse=0;setInterval(()=>{pulse=(Math.sin(Date.now()/300)+1)/2;for(const k in cards){const c=cards[k];if(c.last){drawHeat(c.cv,c.last,pulse,c.corners);const[l,h]=c.cv.dataset.range.split('|');c.el.querySelector('.lo').textContent=l+'\u00b0 cooler';c.el.querySelector('.hi').textContent='hotter '+h+'\u00b0'}}},120);
 function draw(m){
  const P=m.panels;if(!P.length){$('src').textContent='waiting for the panel nodes...';return}
  const online=P.every(p=>p.age_s<8);$('dot').style.background=online?'#2ecc71':'#e63946';
@@ -105,7 +110,7 @@ function draw(m){
  const healthy=P.filter(p=>p.decision.state==='ok').length,w=m.weather;
  $('site').innerHTML=`<div class="big"><b>${m.site.power_w.toFixed(0)} W</b><span>total power now</span></div><div class="big"><b>${healthy} / ${P.length}</b><span>panels healthy</span></div>
  <div class="big"><b>Rs ${m.site.loss_inr_per_day}</b><span>lost per day to dirt and faults</span></div><div class="big"><b>${w.raining?'Raining':(w.rain_48h?'Rain soon':'No rain')}</b><span>${w.ambient_c==null?'':w.ambient_c+'°C air'}</span></div>`;
- for(const p of P){const c=card(p.id),r=p.reading,d=p.decision;c.last=r.temps_c;
+ for(const p of P){const c=card(p.id),r=p.reading,d=p.decision;c.last=r.temps_c;c.corners=r.ldr_corners_lux;
   c.pill.textContent=r.clean_state===1?'washing':r.clean_state===2?'drying':NAME[d.state];c.pill.style.background=r.clean_state?'#4fc3f7':COL[d.state];
   c.w.style.opacity=r.clean_state===1?1:0;c.a.style.opacity=r.clean_state===2?1:0;
   const q=c.el.querySelector.bind(c.el);q('.w').textContent=(r.voltage_v*r.current_a).toFixed(0)+' W';q('.loss').textContent=d.efficiency_loss_pct+'%';

@@ -6,6 +6,7 @@ Input and output formats are in `../docs/contract.md`. Match them exactly.
 ```
 pip install -r requirements.txt
 python decide.py data/sample_reading.json     # prints a decision JSON
+python api/server.py                           # the API, runs on YOUR laptop (laptop B)
 ```
 
 ## What to build (in this order)
@@ -23,13 +24,13 @@ python decide.py data/sample_reading.json     # prints a decision JSON
    (`https://api.open-meteo.com/v1/forecast`, ask for `precipitation_probability`, `shortwave_radiation`, `temperature_2m`). Cache the result, never call more than once an hour.
 5. `forecast.py`  LightGBM regressor for daily kWh over 7 days. Inputs: forecast irradiance, temperature, current soiling loss.
    Train on synthetic data for now. Output feeds `forecast_kwh_7d`.
-6. `decide.py`  `decide(reading) -> decision dict` (see contract). Rule order:
+6. `decide.py`  `decide(reading, weather) -> decision dict` (see contract). `weather` is `{"rain_48h": bool, "day_factor": [7 floats], "ambient_c": float, "raining": bool}`. Rule order:
    - state `fault` or `hotspot`: `clean_now=false`, reason says manual repair.
    - state `dust` and rain expected in 48h: `clean_now=false`, reason says rain will clean it.
    - state `dust` and `loss_inr_per_day` greater than `clean_cost_inr`: `clean_now=true`.
    - else `clean_now=false`.
    Use 8 INR per kWh for the money maths, and make it a constant at the top.
-7. `serve.py`  Subscribe to MQTT `solar/+/reading`, call `decide`, publish to `solar/<id>/decision`. Do this last. Sanjay will run it on the Mac.
+7. `api/server.py`  ALREADY WORKS (Sanjay wrote a reference with simple rules). It receives readings from the node, calls your `decide`, sends clean commands back, and streams to the UI. Your job is to make `decide.py` real so the server picks it up automatically (it falls back to the built-in rules if your import fails). Keep the HTTP endpoints as they are.
 8. `test_decide.py`  A few asserts for the rules in step 6.
 
 ## Rules for you
@@ -37,3 +38,11 @@ python decide.py data/sample_reading.json     # prints a decision JSON
 - Commit `model.pkl` and `data/synthetic.csv` only if each is under 20 MB.
 - Do not change `../docs/contract.md` without telling Sanjay.
 - Keep the demo number honest: report accuracy on synthetic data as synthetic. Real data comes from Sanjay's rig later.
+
+## Laptop B (you) in the live demo
+Laptop A (Sanjay) runs a virtual panel + ESP32 and posts readings to you. Laptop C (Shashank) shows the customer UI from your stream.
+```
+python api/server.py            # prints your IP; give it to Sanjay and Shashank
+```
+Open http://localhost:8000 on your own laptop to see the UI working right now. Test with Sanjay's simulator, or:
+`python ../3-hardware-sim/sim/virtual_node.py --api http://localhost:8000` (console at http://localhost:8100).

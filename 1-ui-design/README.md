@@ -1,15 +1,20 @@
 # 1-ui-design  (owner: Shashank)
 
-Canva designs for the dashboard and the pitch. Export PNG/PDF into `exports/` and paste the Canva share link below.
+Canva designs plus the customer web app (`webapp/`). Branch: `ui/shashank`.
 
-Canva link: (paste here)
+## Laptop C (you) in the live demo
+`webapp/index.html` is a working customer dashboard (Sanjay's reference). It connects to the API on Pratham's laptop and shows live data.
+```
+cd webapp
+python3 -m http.server 8200                    # then open http://localhost:8200/?api=http://<PRATHAM-IP>:8000
+```
+(It also works when served by the API itself at http://<PRATHAM-IP>:8000.) The `?api=` address is remembered by the browser.
 
-Screens to design (use the fields in `../docs/contract.md`):
-1. Live panel view: voltage, current, light, tank level
-2. Thermal heatmap of the panel (the `heatmap` grid, hot cells in red)
-3. Decision card: state, loss %, rupees lost per day, "clean now" yes/no and the reason
-4. 7-day energy forecast chart
-5. Cleaning history and manual "clean now" button
+## Your job
+1. Do the Canva design for the customer app (screens below), then restyle `webapp/index.html` to match it. Keep the data bindings (`draw(m)` function); change layout, colours, fonts, icons.
+2. The customer must NOT see problem-injection buttons. Those live on Sanjay's console. The only customer action is "Clean now".
+3. Export the Canva designs to `exports/` and paste the share link here: (paste link)
+4. Own the pitch deck and demo script too.
 
-Other items you own: pitch deck, one-page summary, demo script. Push them here too.
-Your branch: `ui/shashank`.
+## Screens (fields from `../docs/contract.md`)
+Live panel + thermal heatmap, power chart, AI decision card (state, loss, rupees lost, clean yes/no, reason), 7-day forecast, weather, activity log.

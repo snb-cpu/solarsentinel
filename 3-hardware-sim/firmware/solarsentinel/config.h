@@ -3,7 +3,7 @@
 #pragma once
 
 #define PANEL_ID "P1"
-#define REPORT_MS 60000UL          // send a reading every 60 s
+#define REPORT_MS 2000UL           // send a reading every 2 s for the demo (use 60000 for a real install)
 #define AUTO_CLEAN_MS 7200000UL    // backup timer: clean every 2 hours
 
 // ---- analog inputs (ADC1) ----

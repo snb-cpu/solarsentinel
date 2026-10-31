@@ -11,10 +11,13 @@ The three parts talk through these JSON shapes. Change them only after telling t
   "current_a": 4.1,
   "ldr_lux": 54000,
   "temps_c": [[41.2, 41.5, 41.0], [41.3, 47.9, 41.1]],
-  "tank_level_pct": 70
+  "tank_level_pct": 70,
+  "clean_state": 0,
+  "sim_clock": "Day 1 14:20"
 }
 ```
 `temps_c` is the thermal grid, rows x columns of analog temperature sensors under the panel.
+`clean_state`: 0 idle, 1 water flush, 2 air dry. `sim_clock` exists only in the simulator (the real ESP32 has no clock; the API stamps `ts`).
 
 ## 2. Decision (ml -> hardware, ui)
 ```json
@@ -40,6 +43,13 @@ The three parts talk through these JSON shapes. Change them only after telling t
 ```
 Cycle: solenoid water pulse first, then blower/air dry. Hardware also has its own 2-hour timer as backup.
 
-## Transport
-MQTT topics: `solar/<panel_id>/reading`, `solar/<panel_id>/decision`, `solar/<panel_id>/command`.
-Until hardware exists, use the sample files in each folder to fake these messages.
+## Transport (plain HTTP, no broker)
+| Who | Call | What |
+|---|---|---|
+| Node -> API | `POST /api/reading` | the reading above, every 2 s |
+| Node -> API | `GET /api/command?panel=P1` | polled every 1 s; returns `{}` or the command above |
+| Weather feed -> API | `POST /api/weather` | `{"rain_48h":bool,"day_factor":[7],"ambient_c":27.0,"raining":false}` (in the demo, laptop A plays the weather service) |
+| UI -> API | `GET /events` | live stream (server-sent events) of reading + decision + weather + history + log |
+| UI -> API | `POST /api/clean` | customer's manual "Clean now" |
+
+The decision also carries `forecast_kwh_7d` (with current dirt) and `forecast_clean_kwh_7d` (if the panel were clean).

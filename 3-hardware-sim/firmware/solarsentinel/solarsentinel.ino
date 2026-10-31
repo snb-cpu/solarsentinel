@@ -1,14 +1,14 @@
-// SolarSentinel node: read sensors -> MQTT reading; listen for clean commands; 2-hour backup timer.
-// Topics and JSON are defined in docs/contract.md.
+// SolarSentinel node: read sensors -> POST reading to the API; poll for clean commands; 2-hour backup timer.
+// JSON is defined in docs/contract.md. virtual_node.py is a line-for-line port of this file.
 #include <WiFi.h>
-#include <PubSubClient.h>
+#include <HTTPClient.h>
 #include "config.h"
 #include "secrets.h"
 
-WiFiClient net;
-PubSubClient mqtt(net);
-String tReading = String("solar/") + PANEL_ID + "/reading";
-String tCommand = String("solar/") + PANEL_ID + "/command";
+
+enum CleanState { IDLE, WATER, AIR };
+CleanState cs = IDLE;
+uint32_t csStart = 0, waterMs = 0, airMs = 0, lastClean = 0;
 
 // ---------- sensors ----------
 float adcVolts(int pin) {            // averaged, calibrated reading in volts at the pin
@@ -45,18 +45,17 @@ void publishReading() {
     n += snprintf(grid + n, sizeof(grid) - n, "]");
   }
   snprintf(grid + n, sizeof(grid) - n, "]");
-  char msg[320];
+  char msg[360];
   snprintf(msg, sizeof(msg),
-    "{\"panel_id\":\"%s\",\"voltage_v\":%.2f,\"current_a\":%.2f,\"ldr_lux\":%.0f,\"temps_c\":%s,\"tank_level_pct\":%d}",
-    PANEL_ID, v, a, readLux(), grid, tankPct());
-  mqtt.publish(tReading.c_str(), msg);
+    "{\"panel_id\":\"%s\",\"voltage_v\":%.2f,\"current_a\":%.2f,\"ldr_lux\":%.0f,\"temps_c\":%s,\"tank_level_pct\":%d,\"clean_state\":%d}",
+    PANEL_ID, v, a, readLux(), grid, tankPct(), (int)cs);
   Serial.println(msg);
+  if (WiFi.status() != WL_CONNECTED) return;
+  HTTPClient http; http.setTimeout(1500);
+  if (http.begin(String(API_URL) + "/api/reading")) { http.addHeader("Content-Type", "application/json"); http.POST((uint8_t*)msg, strlen(msg)); http.end(); }
 }
 
 // ---------- cleaning state machine (non-blocking) ----------
-enum CleanState { IDLE, WATER, AIR };
-CleanState cs = IDLE;
-uint32_t csStart = 0, waterMs = 0, airMs = 0, lastClean = 0;
 
 void relays(bool valve, bool blower) {
   digitalWrite(PIN_VALVE, valve ? RELAY_ON : RELAY_OFF);
@@ -77,18 +76,21 @@ void cleanLoop() {
 }
 
 // ---------- comms ----------
-void onMsg(char* topic, byte* p, unsigned int len) {
-  String s; for (unsigned i = 0; i < len; i++) s += (char)p[i];
-  if (s.indexOf("\"clean\"") < 0) return;
-  auto num = [&](const char* key, uint32_t def) {            // tiny JSON number grab, enough for our fixed format
-    int i = s.indexOf(key); if (i < 0) return def;
-    return (uint32_t)s.substring(s.indexOf(':', i) + 1).toInt();
-  };
-  startClean(num("water_ms", 4000), num("air_ms", 8000));
-}
-void ensureLink() {
-  if (WiFi.status() != WL_CONNECTED) { WiFi.begin(WIFI_SSID, WIFI_PASS); return; }   // retry each loop, never block
-  if (!mqtt.connected() && mqtt.connect(PANEL_ID)) mqtt.subscribe(tCommand.c_str());
+void pollCommand() {                 // ask the API if there is a clean command waiting
+  if (WiFi.status() != WL_CONNECTED) return;
+  HTTPClient http; http.setTimeout(800);
+  if (!http.begin(String(API_URL) + "/api/command?panel=" + PANEL_ID)) return;
+  if (http.GET() == 200) {
+    String s = http.getString();
+    if (s.indexOf("\"clean\"") >= 0) {
+      auto num = [&](const char* key, uint32_t def) {          // tiny JSON number grab, enough for our fixed format
+        int i = s.indexOf(key); if (i < 0) return def;
+        return (uint32_t)s.substring(s.indexOf(':', i) + 1).toInt();
+      };
+      startClean(num("water_ms", 4000), num("air_ms", 8000));
+    }
+  }
+  http.end();
 }
 
 void setup() {
@@ -98,14 +100,13 @@ void setup() {
   relays(false, false);                                      // both off at boot
   if (PIN_TANK >= 0) pinMode(PIN_TANK, INPUT_PULLUP);
   analogSetAttenuation(ADC_11db);
-  mqtt.setServer(MQTT_HOST, MQTT_PORT);
-  mqtt.setCallback(onMsg);
+  WiFi.begin(WIFI_SSID, WIFI_PASS);
 }
 void loop() {
-  static uint32_t lastReport = 0, lastLink = 0;
-  if (millis() - lastLink > 5000 && (WiFi.status() != WL_CONNECTED || !mqtt.connected())) { lastLink = millis(); ensureLink(); }
-  mqtt.loop();
+  static uint32_t lastReport = 0, lastPoll = 0, lastLink = 0;
+  if (WiFi.status() != WL_CONNECTED && millis() - lastLink > 10000) { lastLink = millis(); WiFi.reconnect(); }   // never block
   cleanLoop();                                               // runs with or without Wi-Fi
+  if (millis() - lastPoll >= 1000) { lastPoll = millis(); pollCommand(); }
   if (millis() - lastReport >= REPORT_MS) { lastReport = millis(); publishReading(); }
   if (cs == IDLE && millis() - lastClean >= AUTO_CLEAN_MS) startClean(4000, 8000);   // backup timer
 }

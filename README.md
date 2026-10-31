@@ -1,25 +1,12 @@
-# SolarSentinel
+# 3-hardware-sim  (owner: Sanjay, laptop A)
 
-Smart solar monitoring + automated cleaning. Team TRUENO.
+- `firmware/solarsentinel/` real ESP32 firmware (compiles). Reads V, I, light and the temperature grid, POSTs readings, polls for clean commands, runs the water-then-air cycle, 2-hour backup timer.
+- `sim/virtual_node.py` the virtual panel + ESP32: sun cycle, clouds, dust, rain, heat, faults, water tank, plus a port of the firmware logic using the same constants (read from `config.h`) and imperfect "hardware" (ADC noise, divider error, sensor error).
+- `sim/world.py` the physics.
+- `sim/sim.py` older simple generator, still handy for quick tests.
+- `WIRING.md` pins, parts, safety, calibration, flash.
 
-Sensors map a thermal grid under the panel -> ML finds dust vs real faults -> weather-aware decision -> forecast + ROI -> water flush + air dry only when worth it.
-
-## Who works where
-
-Each person pushes ONLY inside their own folder. No one edits another person's folder, so there are no merge conflicts.
-
-| Folder | Owner | Job |
-|---|---|---|
-| `1-ui-design/` | Shashank | Canva designs, exported PNG/PDF, screen list, plus the pitch deck and other non-code items |
-| `2-ml-ai/` | Pratham | Python. Thermal heatmap + anomaly model, weather-aware decision, 7-day forecast + ROI |
-| `3-hardware-sim/` | Sanjay | ESP32 firmware, wiring, sensor + actuator simulation, final integration on the Mac |
-| `docs/` | everyone | `contract.md` = shared data formats (read this first) |
-
-Full problem statement and solution: [docs/README.md](docs/README.md).
-
-Later everything is combined and run on the main Mac.
-
-## Rules
-1. Read `docs/contract.md`. Your output must match it, that is how the parts plug together.
-2. Work on your own branch, e.g. `ui/yourname`, then open a pull request to `main` (steps in `docs/git-steps.md`).
-3. Commit small and often. Put a short `README.md` in your folder saying how to run or view your work.
+```
+python3 sim/virtual_node.py --api http://<PRATHAM-IP>:8000     # operator console: http://localhost:8100
+```
+Branch: `hw/sanjay`.

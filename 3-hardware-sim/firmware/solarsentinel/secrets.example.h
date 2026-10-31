@@ -2,5 +2,4 @@
 #pragma once
 #define WIFI_SSID "your-wifi"
 #define WIFI_PASS "your-password"
-#define MQTT_HOST "192.168.1.10"   // the Mac running the MQTT broker
-#define MQTT_PORT 1883
+#define API_URL "http://192.168.1.10:8000"   // laptop B running 4-demo-app/api/server.py

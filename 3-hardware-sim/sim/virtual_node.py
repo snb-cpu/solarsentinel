@@ -18,7 +18,7 @@ HERE = Path(__file__).parent
 CFG_PATH = HERE.parent / "firmware" / "solarsentinel" / "config.h"
 
 def load_cfg():
-    src = CFG_PATH.read_text()
+    src = CFG_PATH.read_text().split("// ---- WOKWI")[0]      # the Wokwi overrides are not the real hardware
     cfg = {m[0]: float(m[1]) for m in re.findall(r"#define\s+(\w+)\s+(-?[0-9.]+)(?:f|UL)?\b", src)}
     cfg["TEMP_OFFSET_C"] = [float(x) for x in re.search(r"TEMP_OFFSET_C\[8\]\s*=\s*\{([^}]*)\}", src).group(1).split(",")]
     cfg["RELAY_ON_LOW"] = "#define RELAY_ON  LOW" in src

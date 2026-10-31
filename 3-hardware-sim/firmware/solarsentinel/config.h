@@ -40,3 +40,24 @@ static const float TEMP_OFFSET_C[8] = {0, 0, 0, 0, 0, 0, 0, 0};
 
 // ---- optional tank float switch: LOW = water present. Set to -1 if not fitted. ----
 #define PIN_TANK -1
+
+// ---- WOKWI overrides (only used when the sketch starts with #define WOKWI; the Python sim stops reading at the marker above) ----
+#ifdef WOKWI
+#undef PANEL_ID
+#define PANEL_ID "W1"              // shows up as a 4th panel next to the simulated P1-P3
+#undef GRID_ROWS
+#undef GRID_COLS
+#define GRID_ROWS 1
+#define GRID_COLS 3                // three NTC sensors on direct pins
+#undef PIN_VOLT
+#undef PIN_CURR
+#undef PIN_LDR
+#define PIN_VOLT 34                // pot: 0-3.3 V pin -> x6 = 0-19.8 V
+#define PIN_CURR 35                // pot: 1.65 V (middle) = 0 A, turn up for amps
+#define PIN_LDR  39                // pot: light level (VN)
+static const int WOKWI_TEMP_PINS[3] = {32, 33, 36};   // NTC sensors (VP = GPIO36)
+#undef RELAY_ON
+#undef RELAY_OFF
+#define RELAY_ON  HIGH             // if the relay LEDs look inverted in Wokwi, swap HIGH/LOW here
+#define RELAY_OFF LOW
+#endif

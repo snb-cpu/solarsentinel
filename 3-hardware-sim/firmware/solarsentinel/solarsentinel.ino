@@ -2,6 +2,7 @@
 // JSON is defined in docs/contract.md. virtual_node.py is a line-for-line port of this file.
 #include <WiFi.h>
 #include <HTTPClient.h>
+#include <WiFiClientSecure.h>
 #include "config.h"
 #include "secrets.h"
 
@@ -10,7 +11,16 @@ enum CleanState { IDLE, WATER, AIR };
 CleanState cs = IDLE;
 uint32_t csStart = 0, waterMs = 0, airMs = 0, lastClean = 0;
 
+// ---------- http (plain for the LAN, TLS for a tunnel URL like https://xxxx.trycloudflare.com) ----------
+WiFiClientSecure tlsClient; WiFiClient plainClient;
+bool httpBegin(HTTPClient& http, const String& path) {
+  String url = String(API_URL) + path;
+  if (url.startsWith("https")) { tlsClient.setInsecure(); return http.begin(tlsClient, url); }   // demo: no certificate check
+  return http.begin(plainClient, url);
+}
+
 // ---------- sensors ----------
+#ifndef WOKWI
 float adcVolts(int pin) {            // averaged, calibrated reading in volts at the pin
   uint32_t mv = 0;
   for (int i = 0; i < 16; i++) mv += analogReadMilliVolts(pin);
@@ -24,6 +34,15 @@ float readTempC(int ch) {            // select CD4051 channel, let it settle, re
   analogReadMilliVolts(PIN_MUX);     // throw away first sample after switching
   return adcVolts(PIN_MUX) * 1000.0f / TEMP_MV_PER_C + TEMP_OFFSET_C[ch];
 }
+#else                                // ---- Wokwi: pots for V/I/light, NTC thermistors on direct pins, no mux ----
+float adcRaw(int pin) { uint32_t t = 0; for (int i = 0; i < 16; i++) t += analogRead(pin); return t / 16.0f; }
+float adcVolts(int pin) { return adcRaw(pin) / 4095.0f * 3.3f; }
+float readTempC(int ch) {            // Wokwi NTC module (beta 3950), as in the Wokwi docs
+  float raw = adcRaw(WOKWI_TEMP_PINS[ch]);
+  if (raw < 1) raw = 1; if (raw > 4094) raw = 4094;
+  return 1.0f / (log(1.0f / (4095.0f / raw - 1.0f)) / 3950.0f + 1.0f / 298.15f) - 273.15f + TEMP_OFFSET_C[ch];
+}
+#endif
 float readLux() {                    // LDR divider: more light -> higher voltage (wire LDR to 3.3V side)
   return adcVolts(PIN_LDR) / 3.3f * LDR_MAX_LUX;
 }
@@ -52,7 +71,7 @@ void publishReading() {
   Serial.println(msg);
   if (WiFi.status() != WL_CONNECTED) return;
   HTTPClient http; http.setTimeout(1500);
-  if (http.begin(String(API_URL) + "/api/reading")) { http.addHeader("Content-Type", "application/json"); http.POST((uint8_t*)msg, strlen(msg)); http.end(); }
+  if (httpBegin(http, "/api/reading")) { http.addHeader("Content-Type", "application/json"); http.POST((uint8_t*)msg, strlen(msg)); http.end(); }
 }
 
 // ---------- cleaning state machine (non-blocking) ----------
@@ -79,7 +98,7 @@ void cleanLoop() {
 void pollCommand() {                 // ask the API if there is a clean command waiting
   if (WiFi.status() != WL_CONNECTED) return;
   HTTPClient http; http.setTimeout(800);
-  if (!http.begin(String(API_URL) + "/api/command?panel=" + PANEL_ID)) return;
+  if (!httpBegin(http, String("/api/command?panel=") + PANEL_ID)) return;
   if (http.GET() == 200) {
     String s = http.getString();
     if (s.indexOf("\"clean\"") >= 0) {
@@ -95,12 +114,14 @@ void pollCommand() {                 // ask the API if there is a clean command 
 
 void setup() {
   Serial.begin(115200);
+#ifndef WOKWI
   pinMode(PIN_MUX_S0, OUTPUT); pinMode(PIN_MUX_S1, OUTPUT); pinMode(PIN_MUX_S2, OUTPUT);
+#endif
   pinMode(PIN_VALVE, OUTPUT); pinMode(PIN_BLOWER, OUTPUT);
   relays(false, false);                                      // both off at boot
   if (PIN_TANK >= 0) pinMode(PIN_TANK, INPUT_PULLUP);
   analogSetAttenuation(ADC_11db);
-  WiFi.begin(WIFI_SSID, WIFI_PASS);
+  WiFi.begin(WIFI_SSID, WIFI_PASS, 6);          // channel 6 connects fastest in Wokwi, harmless elsewhere
 }
 void loop() {
   static uint32_t lastReport = 0, lastPoll = 0, lastLink = 0;

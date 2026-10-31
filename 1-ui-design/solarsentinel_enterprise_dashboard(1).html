@@ -1,0 +1,1571 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SolarSentinel - Smart Solar Monitor & Auto-Cleaner</title>
+    <!-- Google Fonts Inter -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@500;600&display=swap" rel="stylesheet">
+    
+    <style>
+        :root {
+            --bg-page: #F8FAFC;
+            --bg-page-gradient: linear-gradient(135deg, #F1F5F9 0%, #E2E8F0 100%);
+            --bg-card: rgba(255, 255, 255, 0.85);
+            --bg-card-solid: #FFFFFF;
+            --bg-card-subtle: #F1F5F9;
+            --border-color: rgba(226, 232, 240, 0.8);
+            --border-color-strong: #CBD5E1;
+            
+            --text-primary: #0B1D33;
+            --text-secondary: #475569;
+            --text-muted: #94A3B8;
+
+            --accent-amber: #FFB703;
+            --accent-amber-glow: rgba(255, 183, 3, 0.3);
+            --accent-gold: #F59E0B;
+            --accent-amber-hover: #FB8500;
+            --accent-blue: #0284C7;
+            --accent-cyan: #06B6D4;
+            
+            --status-green: #10B981;
+            --status-green-bg: rgba(16, 185, 129, 0.12);
+            --status-red: #EF4444;
+            --status-red-bg: rgba(239, 68, 68, 0.12);
+            --status-amber: #F59E0B;
+            --status-amber-bg: rgba(245, 158, 11, 0.12);
+            --status-purple: #8B5CF6;
+            --status-purple-bg: rgba(139, 92, 246, 0.12);
+
+            --shadow-sm: 0 1px 3px rgba(11, 29, 51, 0.05);
+            --shadow-md: 0 4px 14px rgba(11, 29, 51, 0.08);
+            --shadow-lg: 0 12px 28px rgba(11, 29, 51, 0.12);
+            
+            --radius-sm: 8px;
+            --radius-md: 14px;
+            --radius-lg: 20px;
+            --font-main: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            --font-mono: 'JetBrains Mono', monospace;
+        }
+
+        .dark {
+            --bg-page: #070F1E;
+            --bg-page-gradient: linear-gradient(135deg, #050B15 0%, #0B1B32 100%);
+            --bg-card: rgba(11, 29, 51, 0.75);
+            --bg-card-solid: #0B1D33;
+            --bg-card-subtle: #112744;
+            --border-color: rgba(30, 58, 95, 0.6);
+            --border-color-strong: #1E3A5F;
+            
+            --text-primary: #F8FAFC;
+            --text-secondary: #94A3B8;
+            --text-muted: #64748B;
+
+            --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.3);
+            --shadow-md: 0 6px 18px rgba(0, 0, 0, 0.4);
+            --shadow-lg: 0 16px 36px rgba(0, 0, 0, 0.55);
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            transition: background-color 0.25s ease, border-color 0.25s ease, color 0.25s ease, transform 0.2s ease, box-shadow 0.2s ease;
+        }
+
+        body {
+            font-family: var(--font-main);
+            background: var(--bg-page-gradient);
+            background-attachment: fixed;
+            color: var(--text-primary);
+            line-height: 1.5;
+            font-size: 16px;
+            padding: 1.5rem;
+            min-height: 100vh;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        .app-container {
+            max-width: 1440px;
+            margin: 0 auto;
+            display: flex;
+            flex-direction: column;
+            gap: 1.5rem;
+        }
+
+        /* Glassmorphism Surface Base */
+        .glass-panel {
+            background: var(--bg-card);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-md);
+            box-shadow: var(--shadow-sm);
+        }
+
+        /* Top Header */
+        header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 1rem 1.75rem;
+            flex-wrap: wrap;
+            gap: 1.25rem;
+        }
+
+        .brand-logo {
+            display: flex;
+            align-items: center;
+            gap: 0.85rem;
+        }
+
+        .brand-icon-wrapper {
+            width: 44px;
+            height: 44px;
+            border-radius: 12px;
+            background: linear-gradient(135deg, #FFB703 0%, #FB8500 100%);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 4px 14px var(--accent-amber-glow);
+        }
+
+        .brand-icon-wrapper svg {
+            width: 26px;
+            height: 26px;
+            fill: #0B1D33;
+        }
+
+        .brand-text h1 {
+            font-size: 1.5rem;
+            font-weight: 800;
+            letter-spacing: -0.03em;
+            background: linear-gradient(135deg, var(--text-primary) 30%, var(--accent-gold) 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .decision-chip {
+            font-size: 0.75rem;
+            font-weight: 600;
+            color: var(--text-muted);
+            display: flex;
+            align-items: center;
+            gap: 0.35rem;
+        }
+
+        .decision-chip::before {
+            content: '';
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            background-color: var(--accent-amber);
+        }
+
+        .header-controls {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            flex-wrap: wrap;
+        }
+
+        .status-pill {
+            display: flex;
+            align-items: center;
+            gap: 0.6rem;
+            padding: 0.45rem 1rem;
+            border-radius: 9999px;
+            font-size: 0.85rem;
+            font-weight: 700;
+            background: var(--status-green-bg);
+            color: var(--status-green);
+            border: 1px solid rgba(16, 185, 129, 0.3);
+            box-shadow: 0 0 12px rgba(16, 185, 129, 0.15);
+        }
+
+        .status-pill.offline {
+            background: var(--status-red-bg);
+            color: var(--status-red);
+            border-color: rgba(239, 68, 68, 0.3);
+            box-shadow: 0 0 12px rgba(239, 68, 68, 0.15);
+        }
+
+        .status-pill.asleep {
+            background: rgba(59, 130, 246, 0.12);
+            color: var(--accent-blue);
+            border-color: rgba(2, 132, 199, 0.3);
+            box-shadow: 0 0 12px rgba(2, 132, 199, 0.15);
+        }
+
+        .status-dot-pulse {
+            width: 9px;
+            height: 9px;
+            border-radius: 50%;
+            background-color: currentColor;
+            position: relative;
+        }
+
+        .status-dot-pulse::after {
+            content: '';
+            position: absolute;
+            inset: -3px;
+            border-radius: 50%;
+            border: 2px solid currentColor;
+            opacity: 0.5;
+            animation: pulse-ring 1.8s cubic-bezier(0.215, 0.61, 0.355, 1) infinite;
+        }
+
+        @keyframes pulse-ring {
+            0% { transform: scale(0.8); opacity: 0.8; }
+            100% { transform: scale(2.2); opacity: 0; }
+        }
+
+        .site-clock-badge {
+            font-family: var(--font-mono);
+            font-size: 0.9rem;
+            font-weight: 600;
+            color: var(--text-secondary);
+            background: var(--bg-card-subtle);
+            padding: 0.45rem 0.9rem;
+            border-radius: var(--radius-sm);
+            border: 1px solid var(--border-color);
+        }
+
+        .theme-toggle-btn {
+            background: var(--bg-card-subtle);
+            border: 1px solid var(--border-color);
+            color: var(--text-primary);
+            padding: 0.45rem 0.9rem;
+            border-radius: var(--radius-sm);
+            cursor: pointer;
+            font-weight: 600;
+            font-size: 0.875rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .theme-toggle-btn:hover {
+            border-color: var(--accent-amber);
+            transform: translateY(-1px);
+        }
+
+        /* Hero Banner Section */
+        .hero-banner {
+            border-radius: var(--radius-lg);
+            padding: 1.75rem 2.25rem;
+            display: grid;
+            grid-template-columns: 2.2fr 1fr 1fr;
+            gap: 2rem;
+            align-items: center;
+            position: relative;
+            overflow: hidden;
+            box-shadow: var(--shadow-md);
+            border: 1px solid var(--border-color);
+        }
+
+        .hero-banner::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 8px;
+            height: 100%;
+            background: linear-gradient(180deg, var(--accent-amber) 0%, var(--accent-gold) 100%);
+        }
+
+        .hero-main h2 {
+            font-size: 1.6rem;
+            font-weight: 800;
+            letter-spacing: -0.02em;
+            margin-bottom: 0.4rem;
+        }
+
+        .hero-main p {
+            color: var(--text-secondary);
+            font-size: 1.05rem;
+        }
+
+        .hero-metric-card {
+            display: flex;
+            flex-direction: column;
+            gap: 0.3rem;
+            border-left: 1px solid var(--border-color);
+            padding-left: 1.75rem;
+        }
+
+        .hero-metric-card .label {
+            font-size: 0.8rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            color: var(--text-muted);
+        }
+
+        .hero-metric-card .val {
+            font-size: 2.3rem;
+            font-weight: 800;
+            letter-spacing: -0.03em;
+            color: var(--text-primary);
+        }
+
+        .hero-metric-card .sub {
+            font-size: 0.875rem;
+            color: var(--text-secondary);
+            font-weight: 500;
+        }
+
+        /* Status Badges */
+        .badge {
+            padding: 0.3rem 0.75rem;
+            border-radius: 6px;
+            font-size: 0.75rem;
+            font-weight: 800;
+            letter-spacing: 0.04em;
+            text-transform: uppercase;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.35rem;
+        }
+
+        .badge-ok { background: var(--status-green-bg); color: var(--status-green); border: 1px solid rgba(16, 185, 129, 0.25); }
+        .badge-dust { background: var(--status-amber-bg); color: var(--status-amber); border: 1px solid rgba(245, 158, 11, 0.25); }
+        .badge-hotspot { background: var(--status-red-bg); color: var(--status-red); border: 1px solid rgba(239, 68, 68, 0.25); }
+        .badge-shading { background: var(--status-purple-bg); color: var(--status-purple); border: 1px solid rgba(139, 92, 246, 0.25); }
+        .badge-fault { background: var(--status-red-bg); color: var(--status-red); border: 1px solid rgba(239, 68, 68, 0.3); }
+
+        /* Buttons */
+        .btn {
+            background: linear-gradient(135deg, #FFB703 0%, #F59E0B 100%);
+            color: #0B1D33;
+            font-weight: 800;
+            border: none;
+            padding: 0.7rem 1.4rem;
+            border-radius: var(--radius-sm);
+            cursor: pointer;
+            box-shadow: 0 4px 12px var(--accent-amber-glow);
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
+            font-size: 0.9rem;
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 18px rgba(255, 183, 3, 0.45);
+        }
+
+        .btn:active {
+            transform: translateY(0);
+        }
+
+        .btn-secondary {
+            background: var(--bg-card-subtle);
+            border: 1px solid var(--border-color);
+            color: var(--text-primary);
+            box-shadow: none;
+        }
+
+        .btn-secondary:hover {
+            border-color: var(--accent-amber);
+            background: var(--bg-card-solid);
+            box-shadow: var(--shadow-sm);
+        }
+
+        /* Layout Grids */
+        .grid-2 {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(500px, 1fr));
+            gap: 1.75rem;
+        }
+
+        .grid-3 {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));
+            gap: 1.5rem;
+        }
+
+        /* Panel Card & Centerpiece Thermal Heatmap */
+        .panel-card {
+            padding: 1.75rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1.25rem;
+            box-shadow: var(--shadow-lg);
+            border: 1px solid var(--border-color-strong);
+            position: relative;
+        }
+
+        .panel-card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .panel-meta-title {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+        }
+
+        /* Realistic Solar Panel Frame & Canvas Outer Shell */
+        .panel-hardware-frame {
+            position: relative;
+            background: linear-gradient(145deg, #1A2638 0%, #0D1624 100%);
+            padding: 14px;
+            border-radius: var(--radius-md);
+            border: 2px solid #334155;
+            box-shadow: inset 0 0 10px rgba(0,0,0,0.8), 0 8px 24px rgba(0,0,0,0.35);
+        }
+
+        /* Aluminum corner brackets */
+        .panel-corner-bracket {
+            position: absolute;
+            width: 14px;
+            height: 14px;
+            border-color: #64748B;
+            border-style: solid;
+            pointer-events: none;
+            z-index: 10;
+        }
+        .bracket-tl { top: 4px; left: 4px; border-width: 2px 0 0 2px; }
+        .bracket-tr { top: 4px; right: 4px; border-width: 2px 2px 0 0; }
+        .bracket-bl { bottom: 4px; left: 4px; border-width: 0 0 2px 2px; }
+        .bracket-br { bottom: 4px; right: 4px; border-width: 0 2px 2px 0; }
+
+        .heatmap-container {
+            position: relative;
+            width: 100%;
+            aspect-ratio: 1.75 / 1;
+            background: #020610;
+            border-radius: var(--radius-sm);
+            overflow: hidden;
+            border: 1px solid #1E293B;
+        }
+
+        /* Glass Surface Reflection & Sheen */
+        .glass-sheen {
+            position: absolute;
+            inset: 0;
+            background: linear-gradient(135deg, rgba(255, 255, 255, 0.12) 0%, rgba(255, 255, 255, 0.03) 35%, transparent 60%);
+            pointer-events: none;
+            z-index: 5;
+        }
+
+        canvas.heatmap-canvas {
+            width: 100%;
+            height: 100%;
+            display: block;
+        }
+
+        /* Floating Thermal Gradient Scale Legend */
+        .thermal-legend-bar {
+            position: absolute;
+            bottom: 12px;
+            right: 14px;
+            background: rgba(7, 15, 30, 0.92);
+            backdrop-filter: blur(8px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: 6px;
+            padding: 5px 10px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            z-index: 8;
+            font-size: 0.7rem;
+            font-family: var(--font-mono);
+            color: #E2E8F0;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.5);
+        }
+
+        .legend-gradient-spectrum {
+            width: 90px;
+            height: 8px;
+            border-radius: 3px;
+            background: linear-gradient(90deg, 
+                rgb(0, 50, 180) 0%, 
+                rgb(0, 200, 255) 20%, 
+                rgb(0, 255, 120) 40%, 
+                rgb(255, 220, 0) 60%, 
+                rgb(255, 100, 0) 80%, 
+                rgb(255, 255, 255) 100%
+            );
+            border: 1px solid rgba(255,255,255,0.3);
+        }
+
+        /* Thermal Corner Lux Sensors */
+        .corner-lux {
+            position: absolute;
+            font-size: 0.72rem;
+            font-family: var(--font-mono);
+            font-weight: 700;
+            background: rgba(11, 29, 51, 0.92);
+            color: #E2E8F0;
+            padding: 4px 9px;
+            border-radius: 6px;
+            pointer-events: none;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            backdrop-filter: blur(6px);
+            z-index: 7;
+        }
+        
+        .corner-lux.uneven {
+            border-color: var(--accent-amber);
+            color: var(--accent-amber);
+            background: rgba(245, 158, 11, 0.3);
+            box-shadow: 0 0 12px rgba(245, 158, 11, 0.4);
+        }
+        
+        .lux-tl { top: 12px; left: 12px; }
+        .lux-tr { top: 12px; right: 12px; }
+        .lux-bl { bottom: 12px; left: 12px; }
+        .lux-br { bottom: 12px; left: 12px; }
+
+        /* Animation Overlays (Clean States) */
+        .clean-overlay {
+            position: absolute;
+            inset: 0;
+            pointer-events: none;
+            opacity: 0;
+            transition: opacity 0.4s ease;
+            z-index: 6;
+        }
+
+        .clean-overlay.active-wash {
+            opacity: 1;
+            background: radial-gradient(circle, rgba(56, 189, 248, 0.45) 0%, rgba(2, 132, 199, 0.6) 100%);
+            animation: wash-wave 1.2s infinite alternate ease-in-out;
+        }
+
+        .clean-overlay.active-dry {
+            opacity: 1;
+            background: repeating-linear-gradient(45deg, rgba(255,255,255,0.18), rgba(255,255,255,0.18) 15px, transparent 15px, transparent 30px);
+            animation: dry-wind 1.5s linear infinite;
+        }
+
+        @keyframes wash-wave {
+            0% { filter: contrast(100%) brightness(100%); }
+            100% { filter: contrast(130%) brightness(120%); }
+        }
+
+        @keyframes dry-wind {
+            from { background-position: 0 0; }
+            to { background-position: 60px 0; }
+        }
+
+        .panel-metrics-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 0.75rem;
+            background: var(--bg-card-subtle);
+            padding: 0.9rem;
+            border-radius: var(--radius-sm);
+            border: 1px solid var(--border-color);
+            text-align: center;
+        }
+
+        .p-metric-item .lbl {
+            font-size: 0.75rem;
+            font-weight: 700;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        .p-metric-item .val {
+            font-size: 1.25rem;
+            font-weight: 800;
+            color: var(--text-primary);
+            margin-top: 0.1rem;
+        }
+
+        /* Zero-Net Reassurance Banner */
+        .reassurance-banner {
+            background: linear-gradient(135deg, rgba(255, 183, 3, 0.12) 0%, rgba(2, 132, 199, 0.08) 100%);
+            border: 1px solid rgba(255, 183, 3, 0.3);
+            border-radius: var(--radius-md);
+            padding: 1.25rem 1.75rem;
+            display: flex;
+            align-items: center;
+            gap: 1.25rem;
+            font-size: 0.95rem;
+            color: var(--text-primary);
+            box-shadow: var(--shadow-sm);
+        }
+
+        .reassurance-banner svg {
+            width: 34px;
+            height: 34px;
+            fill: var(--accent-amber);
+            flex-shrink: 0;
+        }
+
+        /* SVG Dynamic Charts */
+        .chart-box {
+            width: 100%;
+            height: 200px;
+            position: relative;
+        }
+
+        svg.chart-element {
+            width: 100%;
+            height: 100%;
+            overflow: visible;
+        }
+
+        /* Eco Balance Details */
+        .eco-data-list {
+            display: flex;
+            flex-direction: column;
+            gap: 0.85rem;
+        }
+
+        .eco-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding-bottom: 0.6rem;
+            border-bottom: 1px dashed var(--border-color);
+        }
+
+        .eco-row:last-child {
+            border-bottom: none;
+            padding-bottom: 0;
+        }
+
+        .eco-row span {
+            color: var(--text-secondary);
+            font-size: 0.92rem;
+            font-weight: 500;
+        }
+
+        .eco-row strong {
+            font-family: var(--font-mono);
+            font-size: 0.98rem;
+            color: var(--text-primary);
+        }
+
+        /* Activity Log Feed */
+        .activity-feed {
+            list-style: none;
+            display: flex;
+            flex-direction: column;
+            gap: 0.75rem;
+            max-height: 240px;
+            overflow-y: auto;
+            padding-right: 0.25rem;
+        }
+
+        .activity-item {
+            display: flex;
+            align-items: flex-start;
+            gap: 0.85rem;
+            font-size: 0.875rem;
+            padding: 0.6rem;
+            border-radius: var(--radius-sm);
+            background: var(--bg-card-subtle);
+            border: 1px solid var(--border-color);
+        }
+
+        .activity-time {
+            font-family: var(--font-mono);
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            white-space: nowrap;
+            padding-top: 0.1rem;
+        }
+
+        /* Demo Controls Drawer */
+        .demo-drawer {
+            border: 1px dashed var(--accent-amber);
+            border-radius: var(--radius-md);
+            padding: 1.25rem 1.75rem;
+            background: var(--bg-card);
+        }
+
+        .demo-toggle-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            cursor: pointer;
+            font-weight: 700;
+            color: var(--accent-gold);
+            user-select: none;
+        }
+
+        .demo-content-body {
+            display: none;
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            gap: 1.25rem;
+            margin-top: 1.25rem;
+            padding-top: 1.25rem;
+            border-top: 1px solid var(--border-color);
+        }
+
+        .demo-content-body.open {
+            display: grid;
+        }
+
+        .demo-field-group {
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+        }
+
+        .demo-field-group label {
+            font-size: 0.8rem;
+            font-weight: 700;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+        }
+
+        .demo-field-group select, .demo-field-group input {
+            padding: 0.5rem;
+            border-radius: var(--radius-sm);
+            border: 1px solid var(--border-color-strong);
+            background: var(--bg-card-subtle);
+            color: var(--text-primary);
+            font-family: var(--font-main);
+            font-weight: 600;
+        }
+
+        /* Shimmer Loading Skeleton */
+        .skeleton-card {
+            height: 420px;
+            background: linear-gradient(90deg, var(--bg-card-subtle) 25%, var(--border-color) 50%, var(--bg-card-subtle) 75%);
+            background-size: 200% 100%;
+            animation: shimmer-anim 1.6s infinite;
+            border-radius: var(--radius-md);
+        }
+
+        @keyframes shimmer-anim {
+            0% { background-position: 200% 0; }
+            100% { background-position: -200% 0; }
+        }
+
+        @media (max-width: 960px) {
+            .hero-banner {
+                grid-template-columns: 1fr;
+            }
+            .hero-metric-card {
+                border-left: none;
+                border-top: 1px solid var(--border-color);
+                padding-left: 0;
+                padding-top: 1.25rem;
+            }
+            .grid-2, .grid-3 {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+
+<div class="app-container">
+    <!-- Header -->
+    <header class="glass-panel">
+        <div class="brand-logo">
+            <div class="brand-icon-wrapper">
+                <svg viewBox="0 0 24 24">
+                    <circle cx="12" cy="12" r="5"></circle>
+                    <path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42" stroke="#0B1D33" stroke-width="2.5" stroke-linecap="round"/>
+                </svg>
+            </div>
+            <div class="brand-text">
+                <h1>SolarSentinel</h1>
+                <div class="decision-chip" id="decisions-by">Decisions by: ML Model</div>
+            </div>
+        </div>
+
+        <div class="header-controls">
+            <div id="connection-pill" class="status-pill">
+                <div class="status-dot-pulse"></div>
+                <span id="connection-text">Connecting...</span>
+            </div>
+            <div class="site-clock-badge" id="site-clock">--:--:--</div>
+            <button class="theme-toggle-btn" onclick="toggleTheme()" aria-label="Toggle Theme">
+                <span id="theme-icon">🌙</span> <span id="theme-text">Dark</span>
+            </button>
+        </div>
+    </header>
+
+    <!-- Executive Hero Card -->
+    <div class="hero-banner glass-panel" id="hero-banner">
+        <div class="hero-main">
+            <span class="badge badge-ok" id="hero-badge" style="margin-bottom: 0.6rem;">System Healthy</span>
+            <h2 id="hero-title">Your panels are operating at peak yield</h2>
+            <p id="hero-desc">Auto-clean system is balanced. Rainwater reservoir is actively utilized.</p>
+        </div>
+        <div class="hero-metric-card">
+            <span class="label">Total Power Output</span>
+            <span class="val" id="hero-power">-- W</span>
+            <span class="sub" id="hero-energy-est">Est. Today: -- kWh</span>
+        </div>
+        <div class="hero-metric-card">
+            <span class="label">Daily Loss Impact</span>
+            <span class="val" style="color: var(--status-amber);" id="hero-loss">₹0 / day</span>
+            <span class="sub" id="hero-loss-pct">0.0% efficiency loss</span>
+        </div>
+    </div>
+
+    <!-- Thermal Heatmap Grid Section (Centerpiece) -->
+    <section>
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.25rem;">
+            <div>
+                <h2 style="font-size: 1.35rem; font-weight: 800; letter-spacing: -0.02em;">Live Panel Thermal Inspection</h2>
+                <p style="font-size: 0.875rem; color: var(--text-secondary);">Real-time interpolated 2x4 surface thermal sensors & light uniformity</p>
+            </div>
+            <button class="btn" onclick="triggerCleanAll()">
+                ✨ Clean All Panels Now
+            </button>
+        </div>
+        <div class="grid-2" id="panels-grid">
+            <!-- Shimmer Skeletons before SSE data arrives -->
+            <div class="skeleton-card"></div>
+            <div class="skeleton-card"></div>
+        </div>
+    </section>
+
+    <!-- Reassurance Banner -->
+    <div class="reassurance-banner">
+        <svg viewBox="0 0 24 24">
+            <path d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+        </svg>
+        <div>
+            <strong>Zero-Net Energy Washing Protocol:</strong> SolarSentinel activates auto-cleaning strictly during daylight and dry weather, guaranteeing that energy consumed by pumps is fully recovered by immediate post-clean efficiency boosts. Rainwater fills the reservoir first; tap valve acts solely as secondary backup.
+        </div>
+    </div>
+
+    <!-- Dynamic SVG Charts Grid -->
+    <div class="grid-2">
+        <!-- Power History Chart -->
+        <div class="glass-panel" style="padding: 1.5rem;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+                <h3 style="font-size: 1.1rem; font-weight: 700;">⚡ Power Output History (Watts)</h3>
+                <span style="font-size: 0.8rem; font-family: var(--font-mono); color: var(--text-muted);" id="history-points-count">Live SSE Feed</span>
+            </div>
+            <div class="chart-box">
+                <svg class="chart-element" id="power-chart-svg" viewBox="0 0 500 160" preserveAspectRatio="none"></svg>
+            </div>
+        </div>
+
+        <!-- 7-Day Forecast Chart -->
+        <div class="glass-panel" style="padding: 1.5rem;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+                <h3 style="font-size: 1.1rem; font-weight: 700;">📅 7-Day Yield Forecast (kWh)</h3>
+                <span style="font-size: 0.78rem; font-weight: 600; color: var(--text-muted);">
+                    <span style="color: var(--accent-amber);">■ Current</span> &nbsp;|&nbsp; 
+                    <span style="color: var(--text-muted);">░ Wash Boosted</span>
+                </span>
+            </div>
+            <div class="chart-box">
+                <svg class="chart-element" id="forecast-chart-svg" viewBox="0 0 500 160"></svg>
+            </div>
+        </div>
+    </div>
+
+    <!-- Power, Water & Environment Grid -->
+    <div class="grid-3">
+        <!-- Power & Water Eco-Balance -->
+        <div class="glass-panel" style="padding: 1.5rem;">
+            <h3 style="font-size: 1.1rem; font-weight: 700; margin-bottom: 1rem;">💧 Power & Water Eco-Balance</h3>
+            <div class="eco-data-list">
+                <div class="eco-row">
+                    <span>Node Power Draw:</span>
+                    <strong id="node-draw">-- mW</strong>
+                </div>
+                <div class="eco-row">
+                    <span>Node Energy Used:</span>
+                    <strong id="node-energy">-- Wh</strong>
+                </div>
+                <div class="eco-row">
+                    <span>Tap Water Consumed:</span>
+                    <strong id="water-tap">-- L</strong>
+                </div>
+                <div class="eco-row">
+                    <span>Sprayed Water Total:</span>
+                    <strong id="water-spray">-- L</strong>
+                </div>
+                <div class="eco-row" id="energy-recovered-row">
+                    <span>Energy Recovered by Cleaning:</span>
+                    <strong style="color: var(--status-green);" id="energy-recovered">-- Wh</strong>
+                </div>
+            </div>
+        </div>
+
+        <!-- Weather & Environment -->
+        <div class="glass-panel" style="padding: 1.5rem;">
+            <h3 style="font-size: 1.1rem; font-weight: 700; margin-bottom: 1rem;">🌤️ Weather & Environment</h3>
+            <div class="eco-data-list">
+                <div class="eco-row">
+                    <span>Ambient Temperature:</span>
+                    <strong id="weather-temp">-- °C</strong>
+                </div>
+                <div class="eco-row">
+                    <span>Current Condition:</span>
+                    <strong id="weather-rain">Clear</strong>
+                </div>
+                <div class="eco-row">
+                    <span>48h Rain Forecast:</span>
+                    <strong id="weather-rain48">0 mm</strong>
+                </div>
+                <div class="eco-row">
+                    <span>Tap Water Inlet Valve:</span>
+                    <strong id="tap-valve-status">Closed</strong>
+                </div>
+            </div>
+        </div>
+
+        <!-- Activity Feed -->
+        <div class="glass-panel" style="padding: 1.5rem;">
+            <h3 style="font-size: 1.1rem; font-weight: 700; margin-bottom: 1rem;">📋 Activity & ML Decision Log</h3>
+            <ul class="activity-feed" id="log-list">
+                <li class="activity-item"><span class="activity-time">--:--</span><span>Awaiting system telemetry...</span></li>
+            </ul>
+        </div>
+    </div>
+
+    <!-- Simulator Demo Drawer -->
+    <div class="demo-drawer glass-panel" id="demo">
+        <div class="demo-toggle-header" onclick="toggleDemoDrawer()">
+            <span>🛠️ Demo & Simulation Controls (Presenter Panel)</span>
+            <span id="demo-chevron">▼</span>
+        </div>
+        <div class="demo-content-body" id="demo-content">
+            <div class="demo-field-group">
+                <label for="demo-panel">Target Panel:</label>
+                <select id="demo-panel">
+                    <option value="0">Panel 1 (ID 0)</option>
+                    <option value="1">Panel 2 (ID 1)</option>
+                </select>
+            </div>
+            <div class="demo-field-group">
+                <label for="demo-fault">Inject Fault / Condition:</label>
+                <select id="demo-fault">
+                    <option value="dust">Dust Accumulation</option>
+                    <option value="hotspot">Hotspot Cell Fault</option>
+                    <option value="shading">Shadow Shading</option>
+                    <option value="clear">Clear Faults (Clean)</option>
+                </select>
+                <button class="btn btn-secondary" onclick="sendSimCmd('fault')">Apply Condition</button>
+            </div>
+            <div class="demo-field-group">
+                <label for="demo-weather">Weather Trigger:</label>
+                <select id="demo-weather">
+                    <option value="rain">Trigger Rain Storm</option>
+                    <option value="sun">Clear Sunny Sky</option>
+                    <option value="night">Night Mode</option>
+                </select>
+                <button class="btn btn-secondary" onclick="sendSimCmd('weather')">Set Weather</button>
+            </div>
+            <div class="demo-field-group">
+                <label for="demo-speed">Sim Speed Multiplier:</label>
+                <input type="number" id="demo-speed" value="1" min="1" max="60">
+                <button class="btn btn-secondary" onclick="sendSimCmd('speed')">Update Speed</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    // --- MANDATED EXACT API CONNECTION LOGIC ---
+    const params = new URLSearchParams(window.location.search);
+    const API = params.get('api') || localStorage.getItem('solarsentinel_api') || 'http://localhost:8000';
+
+    // Hide Demo controls drawer if ?demo=0 is passed
+    if (params.get('demo') === '0') {
+        const demoEl = document.getElementById('demo');
+        if (demoEl) demoEl.style.display = 'none';
+    }
+
+    let eventSource = null;
+
+    function connect() {
+        const connPill = document.getElementById('connection-pill');
+        const connText = document.getElementById('connection-text');
+
+        try {
+            eventSource = new EventSource(API + '/events');
+
+            eventSource.onopen = () => {
+                connPill.className = 'status-pill';
+                connText.innerText = 'Panel online';
+            };
+
+            eventSource.onmessage = (event) => {
+                try {
+                    const m = JSON.parse(event.data);
+                    draw(m);
+                } catch (e) {
+                    console.error('Error parsing snapshot JSON:', e);
+                }
+            };
+
+            eventSource.onerror = (err) => {
+                connPill.className = 'status-pill offline';
+                connText.innerText = 'Offline';
+            };
+        } catch (e) {
+            connPill.className = 'status-pill offline';
+            connText.innerText = 'Offline';
+        }
+    }
+
+    // --- MAIN RENDERER (draw) ---
+    function draw(m) {
+        if (!m) return;
+
+        // 1. ML Model Source
+        document.getElementById('decisions-by').innerText = 'Decisions by: ' + (m.ml || 'ML model');
+
+        // 2. Weather & Environment
+        if (m.weather) {
+            document.getElementById('weather-temp').innerText = (m.weather.ambient_c ?? 28.0).toFixed(1) + ' °C';
+            document.getElementById('weather-rain').innerText = m.weather.raining ? '☔ Raining' : '☀️ Clear';
+            document.getElementById('weather-rain48').innerText = (m.weather.rain_48h ?? 0) + ' mm';
+        }
+
+        // 3. Site Power & Eco Metrics
+        if (m.site) {
+            document.getElementById('node-draw').innerText = (m.site.node_mw ?? 0) + ' mW';
+            document.getElementById('node-energy').innerText = (m.site.node_wh ?? 0).toFixed(1) + ' Wh';
+            document.getElementById('water-tap').innerText = (m.site.tap_l ?? 0).toFixed(1) + ' L';
+            document.getElementById('water-spray').innerText = (m.site.spray_l ?? 0).toFixed(1) + ' L';
+            document.getElementById('tap-valve-status').innerText = m.site.tap_open ? '💧 Refilling Tank' : 'Closed';
+
+            if (m.sim && m.sim.today && m.sim.today.energy_recovered_wh !== undefined) {
+                document.getElementById('energy-recovered-row').style.display = 'flex';
+                document.getElementById('energy-recovered').innerText = m.sim.today.energy_recovered_wh.toFixed(1) + ' Wh';
+            } else {
+                document.getElementById('energy-recovered-row').style.display = 'none';
+            }
+
+            // Hero Calculations
+            const totalPower = m.site.power_w ?? 0;
+            const totalLossRs = m.site.loss_inr_per_day ?? 0;
+            document.getElementById('hero-power').innerText = Math.round(totalPower) + ' W';
+            document.getElementById('hero-loss').innerText = '₹' + Math.round(totalLossRs) + ' / day';
+
+            let estKwh = 0;
+            if (m.site.history && m.site.history.length > 0) {
+                const avgW = m.site.history.reduce((acc, curr) => acc + (typeof curr === 'number' ? curr : (curr.p || 0)), 0) / m.site.history.length;
+                estKwh = (avgW * 12) / 1000;
+            }
+            document.getElementById('hero-energy-est').innerText = `Est. Today: ${estKwh.toFixed(2)} kWh`;
+
+            // Dynamic Hero Status Copy
+            const heroTitle = document.getElementById('hero-title');
+            const heroDesc = document.getElementById('hero-desc');
+            const heroBadge = document.getElementById('hero-badge');
+
+            if (totalLossRs > 15) {
+                heroBadge.className = 'badge badge-dust';
+                heroBadge.innerText = 'Cleaning Recommended';
+                heroTitle.innerText = `Dust accumulation is costing ₹${Math.round(totalLossRs)} per day`;
+                heroDesc.innerText = 'Auto-clean system is primed for wash cycle to recover full output capacity.';
+            } else {
+                heroBadge.className = 'badge badge-ok';
+                heroBadge.innerText = 'System Optimal';
+                heroTitle.innerText = 'Your solar panels are operating at peak yield';
+                heroDesc.innerText = 'Thermal surface sensors report uniform light and heat distribution.';
+            }
+
+            if (m.site.history) renderPowerChart(m.site.history);
+            if (m.site.forecast_kwh_7d) renderForecastChart(m.site.forecast_kwh_7d, m.site.forecast_clean_kwh_7d);
+        }
+
+        // 4. Render Panel Heatmap Grid
+        if (m.panels && Array.isArray(m.panels)) {
+            renderPanelsGrid(m.panels);
+        }
+
+        // 5. Activity Log Feed
+        if (m.log && Array.isArray(m.log)) {
+            renderLogs(m.log);
+        }
+
+        document.getElementById('site-clock').innerText = new Date().toLocaleTimeString();
+    }
+
+    // --- PANEL GRID & THERMAL HEATMAP CANVAS ---
+    function renderPanelsGrid(panels) {
+        const grid = document.getElementById('panels-grid');
+        grid.innerHTML = '';
+
+        panels.forEach((p, idx) => {
+            const card = document.createElement('div');
+            card.className = 'panel-card glass-panel';
+
+            const isOffline = (p.age_s > 8 && p.mode !== 'sleep');
+            const isAsleep = (p.mode === 'sleep');
+
+            let modeBadgeText = 'ACTIVE';
+            let modeBadgeClass = 'badge-ok';
+            if (isOffline) {
+                modeBadgeText = 'OFFLINE';
+                modeBadgeClass = 'badge-fault';
+            } else if (isAsleep) {
+                modeBadgeText = `SLEEP (${p.sleep?.reason || 'night'})`;
+                modeBadgeClass = 'badge-shading';
+            }
+
+            const stateText = (p.decision?.state || 'OK').toUpperCase();
+            const stateBadgeClass = `badge-${p.decision?.state || 'ok'}`;
+
+            const v = p.reading?.voltage_v ?? 0;
+                <div class="panel-hardware-frame">
+                    <div class="panel-corner-bracket bracket-tl"></div>
+                    <div class="panel-corner-bracket bracket-tr"></div>
+                    <div class="panel-corner-bracket bracket-bl"></div>
+                    <div class="panel-corner-bracket bracket-br"></div>
+
+                    <div class="heatmap-container">
+                        <div class="glass-sheen"></div>
+                        <canvas id="heatmap-canvas-${idx}" class="heatmap-canvas" width="600" height="340"></canvas>
+                        
+                        <div class="corner-lux lux-tl" id="lux-tl-${idx}">TL: --</div>
+                        <div class="corner-lux lux-tr" id="lux-tr-${idx}">TR: --</div>
+                        <div class="corner-lux lux-bl" id="lux-bl-${idx}">BL: --</div>
+                        <div class="corner-lux lux-br" id="lux-br-${idx}">BR: --</div>
+
+                        <!-- Thermal Camera Legend -->
+                        <div class="thermal-legend-bar">
+                            <span id="legend-min-${idx}">--°C</span>
+                            <div class="legend-gradient-spectrum"></div>
+                            <span id="legend-max-${idx}">--°C</span>
+                        </div>
+
+                        <div class="clean-overlay ${p.reading?.clean_state === 1 ? 'active-wash' : (p.reading?.clean_state === 2 ? 'active-dry' : '')}"></div>
+                    </div>
+                </div>
+
+                <div style="font-size: 0.88rem; color: var(--text-secondary); line-height: 1.4;">
+                    <strong style="color: var(--text-primary);">AI Decision Reason:</strong> ${p.decision?.reason || 'Panel operating cleanly within normal thermal bounds.'}
+                </div>
+
+                <div class="panel-metrics-grid">
+                    <div class="p-metric-item">
+                        <div class="lbl">Output</div>
+                        <div class="val">${watts} W</div>
+                        <div style="font-size: 0.7rem; color: var(--text-muted); font-family: var(--font-mono);">${v.toFixed(1)}V / ${a.toFixed(1)}A</div>
+                    </div>
+                    <div class="p-metric-item">
+                        <div class="lbl">Efficiency Loss</div>
+                        <div class="val" style="color: var(--status-amber);">${(p.decision?.efficiency_loss_pct || 0).toFixed(1)}%</div>
+                    </div>
+                    <div class="p-metric-item">
+                        <div class="lbl">Daily Loss</div>
+                        <div class="val" style="color: var(--status-red);">₹${Math.round(p.decision?.loss_inr_per_day || 0)}</div>
+                    </div>
+                </div>
+            `;
+
+            grid.appendChild(card);
+
+            setTimeout(() => {
+                drawThermalHeatmap(`heatmap-canvas-${idx}`, p.reading?.temps_c, p.reading?.ldr_corners_lux, idx);
+            }, 0);
+        });
+    }
+
+    // Continuous Smooth Gaussian Interpolated Thermal Heatmap
+    function drawThermalHeatmap(canvasId, temps, cornerLux, panelIdx) {
+        const canvas = document.getElementById(canvasId);
+        if (!canvas) return;
+        const ctx = canvas.getContext('2d');
+        const w = canvas.width;
+        const h = canvas.height;
+
+        const gridTemps = temps || [
+            [32, 33, 35, 34],
+            [31, 32, 33, 32]
+        ];
+
+        const flatTemps = gridTemps.flat();
+        const minTemp = Math.min(...flatTemps);
+        const maxTemp = Math.max(...flatTemps);
+        const sorted = [...flatTemps].sort((a, b) => a - b);
+        const medianTemp = sorted[Math.floor(sorted.length / 2)];
+
+        // Update panel thermal legend bounds
+        const minLeg = document.getElementById(`legend-min-${panelIdx}`);
+        const maxLeg = document.getElementById(`legend-max-${panelIdx}`);
+        if (minLeg) minLeg.innerText = `${minTemp.toFixed(1)}°C`;
+        if (maxLeg) maxLeg.innerText = `${maxTemp.toFixed(1)}°C`;
+
+        function getThermalColor(val) {
+            const range = (maxTemp - minTemp) || 1;
+            const norm = Math.max(0, Math.min(1, (val - minTemp) / range));
+
+            if (norm < 0.15) return `rgb(0, ${Math.floor(50 + norm * 6 * 100)}, ${Math.floor(180 + norm * 6 * 75)})`; 
+            if (norm < 0.35) return `rgb(0, ${Math.floor(180 + (norm - 0.15) * 5 * 75)}, 255)`; 
+            if (norm < 0.55) return `rgb(0, 255, ${Math.floor(255 - (norm - 0.35) * 5 * 200)})`; 
+            if (norm < 0.75) return `rgb(255, ${Math.floor(240 - (norm - 0.55) * 5 * 140)}, 0)`; 
+            if (norm < 0.90) return `rgb(255, ${Math.floor(100 - (norm - 0.75) * 6.6 * 80)}, 0)`;
+            return `rgb(255, ${Math.floor(200 + (norm - 0.90) * 10 * 55)}, ${Math.floor((norm - 0.90) * 10 * 255)})`; 
+        }
+
+        ctx.fillStyle = '#020610';
+        ctx.fillRect(0, 0, w, h);
+
+        const rows = 2;
+        const cols = 4;
+        const colW = w / cols;
+        const rowH = h / rows;
+
+        // Render Gaussian Radial Temperature Gradient Field
+        for (let r = 0; r < rows; r++) {
+            for (let c = 0; c < cols; c++) {
+                const temp = gridTemps[r][c];
+                const cx = colW * c + colW / 2;
+                const cy = rowH * r + rowH / 2;
+                const radius = Math.max(colW, rowH) * 1.5;
+
+                const grad = ctx.createRadialGradient(cx, cy, 4, cx, cy, radius);
+                grad.addColorStop(0, getThermalColor(temp));
+                grad.addColorStop(0.65, getThermalColor((temp + medianTemp) / 2));
+                grad.addColorStop(1, 'transparent');
+
+                ctx.fillStyle = grad;
+                ctx.globalCompositeOperation = 'screen';
+                ctx.beginPath();
+                ctx.arc(cx, cy, radius, 0, Math.PI * 2);
+                ctx.fill();
+            }
+        }
+
+        ctx.globalCompositeOperation = 'source-over';
+
+        // Silver Busbars and Solar Cell Gridlines
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.18)';
+        ctx.lineWidth = 1;
+        for (let i = 1; i < cols; i++) {
+            ctx.beginPath();
+            ctx.moveTo(i * colW, 0);
+            ctx.lineTo(i * colW, h);
+            ctx.stroke();
+        }
+        ctx.beginPath();
+        ctx.moveTo(0, h / 2);
+        ctx.lineTo(w, h / 2);
+        ctx.stroke();
+
+        // Metallic Silver Busbar Stripes
+        ctx.strokeStyle = 'rgba(226, 232, 240, 0.45)';
+        ctx.lineWidth = 2;
+        [0.25, 0.75].forEach(ratio => {
+            ctx.beginPath();
+            ctx.moveTo(0, h * ratio);
+            ctx.lineTo(w, h * ratio);
+            ctx.stroke();
+        });
+
+        let hottestPoint = { r: 0, c: 0, temp: -Infinity, cx: 0, cy: 0 };
+
+        for (let r = 0; r < rows; r++) {
+            for (let c = 0; c < cols; c++) {
+                const temp = gridTemps[r][c];
+                const cx = colW * c + colW / 2;
+                const cy = rowH * r + rowH / 2;
+
+                if (temp > hottestPoint.temp) {
+                    hottestPoint = { r, c, temp, cx, cy };
+                }
+
+                // Crosshair Sensor Point
+                ctx.strokeStyle = 'rgba(255, 255, 255, 0.8)';
+                ctx.lineWidth = 1.5;
+                ctx.beginPath();
+                ctx.arc(cx, cy, 4, 0, Math.PI * 2);
+                ctx.stroke();
+
+                ctx.fillStyle = 'rgba(7, 15, 30, 0.9)';
+                ctx.fillRect(cx - 24, cy + 10, 48, 20);
+                ctx.strokeStyle = 'rgba(255, 255, 255, 0.25)';
+                ctx.strokeRect(cx - 24, cy + 10, 48, 20);
+
+                ctx.fillStyle = '#FFFFFF';
+                ctx.font = '600 12px "JetBrains Mono", monospace';
+                ctx.textAlign = 'center';
+                ctx.fillText(`${temp.toFixed(1)}°C`, cx, cy + 24);
+            }
+        }
+
+        // Hotspot Target Reticle Overlay
+        if (hottestPoint.temp > medianTemp + 4) {
+            ctx.strokeStyle = '#EF4444';
+            ctx.lineWidth = 3;
+            ctx.beginPath();
+            ctx.arc(hottestPoint.cx, hottestPoint.cy, 30, 0, Math.PI * 2);
+            ctx.stroke();
+
+            // Reticle Target Lines
+            ctx.beginPath();
+            ctx.moveTo(hottestPoint.cx - 36, hottestPoint.cy);
+            ctx.lineTo(hottestPoint.cx - 24, hottestPoint.cy);
+            ctx.moveTo(hottestPoint.cx + 24, hottestPoint.cy);
+            ctx.lineTo(hottestPoint.cx + 36, hottestPoint.cy);
+            ctx.moveTo(hottestPoint.cx, hottestPoint.cy - 36);
+            ctx.lineTo(hottestPoint.cx, hottestPoint.cy - 24);
+            ctx.moveTo(hottestPoint.cx, hottestPoint.cy + 24);
+            ctx.lineTo(hottestPoint.cx, hottestPoint.cy + 36);
+            ctx.stroke();
+
+            ctx.fillStyle = '#EF4444';
+            ctx.font = '800 11px sans-serif';
+            ctx.fillText('HOTSPOT WARNING', hottestPoint.cx, hottestPoint.cy - 38);
+        }
+
+        // Corner Lux sensor evaluation
+        if (cornerLux && cornerLux.length === 4) {
+            const minLux = Math.min(...cornerLux);
+            const maxLux = Math.max(...cornerLux);
+            const isUneven = (maxLux - minLux) / (maxLux || 1) > 0.25;
+
+            const corners = ['tl', 'tr', 'bl', 'br'];
+            cornerLux.forEach((lux, i) => {
+                const el = document.getElementById(`lux-${corners[i]}-${panelIdx}`);
+                if (el) {
+                    el.innerText = `${corners[i].toUpperCase()}: ${(lux / 1000).toFixed(1)} kLx`;
+                    if (isUneven) el.classList.add('uneven');
+                    else el.classList.remove('uneven');
+                }
+            });
+        }
+    }
+
+    // --- SVG POWER AREA CHART ---
+    function renderPowerChart(history) {
+        const svg = document.getElementById('power-chart-svg');
+        if (!svg || !history || history.length === 0) return;
+
+        const w = 500;
+        const h = 160;
+        const pad = 25;
+
+        const data = history.map(item => typeof item === 'number' ? { p: item, c: false } : item);
+        const maxP = Math.max(...data.map(d => d.p), 100);
+
+        const pts = data.map((d, i) => {
+            const x = pad + (i / (data.length - 1 || 1)) * (w - 2 * pad);
+            const y = h - pad - (d.p / maxP) * (h - 2 * pad);
+            return { x, y, c: d.c, p: d.p };
+        });
+
+        let pathD = `M ${pts[0].x} ${pts[0].y}`;
+        for (let i = 1; i < pts.length; i++) {
+            pathD += ` L ${pts[i].x} ${pts[i].y}`;
+        }
+
+        const areaD = pathD + ` L ${pts[pts.length - 1].x} ${h - pad} L ${pts[0].x} ${h - pad} Z`;
+
+        let markers = '';
+        pts.forEach(p => {
+            if (p.c) {
+                markers += `
+                    <circle cx="${p.x}" cy="${p.y}" r="6" fill="#0284C7" stroke="#FFFFFF" stroke-width="2.5" />
+                    <text x="${p.x}" y="${p.y - 12}" fill="#0284C7" font-size="10" font-weight="bold" text-anchor="middle">Washed</text>
+                `;
+            }
+        });
+
+        svg.innerHTML = `
+            <defs>
+                <linearGradient id="powerChartGrad" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stop-color="#FFB703" stop-opacity="0.45"/>
+                    <stop offset="100%" stop-color="#FFB703" stop-opacity="0.0"/>
+                </linearGradient>
+            </defs>
+            <path d="${areaD}" fill="url(#powerChartGrad)" />
+            <path d="${pathD}" fill="none" stroke="#FFB703" stroke-width="3" stroke-linecap="round"/>
+            ${markers}
+        `;
+        document.getElementById('history-points-count').innerText = `${data.length} telemetry points`;
+    }
+
+    // --- SVG 7-DAY FORECAST COMPARISON CHART ---
+    function renderForecastChart(currentKwh, cleanKwh) {
+        const svg = document.getElementById('forecast-chart-svg');
+        if (!svg || !currentKwh) return;
+
+        const w = 500;
+        const h = 160;
+        const days = ['Today', 'Tomorrow', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+        const maxVal = Math.max(...currentKwh, ...(cleanKwh || []), 5);
+        const barWidth = 26;
+        const gap = (w - 50) / currentKwh.length;
+
+        let content = '';
+
+        currentKwh.forEach((val, i) => {
+            const x = 35 + i * gap;
+            const hCurrent = (val / maxVal) * 100;
+            const yCurrent = h - 30 - hCurrent;
+
+            const cleanVal = (cleanKwh && cleanKwh[i]) ? cleanKwh[i] : val;
+            const hClean = (cleanVal / maxVal) * 100;
+            const yClean = h - 30 - hClean;
+
+            content += `
+                <rect x="${x}" y="${yClean}" width="${barWidth}" height="${hClean}" fill="none" stroke="#94A3B8" stroke-width="1.5" stroke-dasharray="3,3" rx="5"/>
+                <rect x="${x}" y="${yCurrent}" width="${barWidth}" height="${hCurrent}" fill="url(#barGrad)" rx="5"/>
+                <text x="${x + barWidth / 2}" y="${h - 10}" fill="currentColor" font-size="10" font-weight="600" text-anchor="middle">${days[i] || 'Day'}</text>
+                <text x="${x + barWidth / 2}" y="${yCurrent - 6}" fill="currentColor" font-size="10" font-weight="bold" text-anchor="middle">${val.toFixed(1)}</text>
+            `;
+        });
+
+        svg.innerHTML = `
+            <defs>
+                <linearGradient id="barGrad" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stop-color="#FFB703"/>
+                    <stop offset="100%" stop-color="#F59E0B"/>
+                </linearGradient>
+            </defs>
+            ${content}
+        `;
+    }
+
+    // --- LOG FEED ---
+    function renderLogs(logs) {
+        const logList = document.getElementById('log-list');
+        if (!logList) return;
+        logList.innerHTML = '';
+
+        const reversed = [...logs].reverse();
+        reversed.forEach(item => {
+            const li = document.createElement('li');
+            li.className = 'activity-item';
+            const timeStr = typeof item.t === 'number' ? new Date(item.t * 1000).toLocaleTimeString() : (item.t || '--:--');
+            li.innerHTML = `
+                <span class="activity-time">${timeStr}</span>
+                <span>${item.msg || item}</span>
+            `;
+            logList.appendChild(li);
+        });
+    }
+
+    // --- MANDATED CLEAN TRIGGER APIS ---
+    function triggerCleanAll() {
+        fetch(API + '/api/clean', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({})
+        }).catch(err => console.error('Clean All API error:', err));
+    }
+
+    function triggerCleanPanel(panelId) {
+        fetch(API + '/api/clean', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ panel_id: panelId })
+        }).catch(err => console.error('Clean Panel API error:', err));
+    }
+
+    // --- DEMO SIMULATOR CONTROL ---
+    function toggleDemoDrawer() {
+        const content = document.getElementById('demo-content');
+        const chevron = document.getElementById('demo-chevron');
+        if (content.classList.contains('open')) {
+            content.classList.remove('open');
+            chevron.innerText = '▼';
+        } else {
+            content.classList.add('open');
+            chevron.innerText = '▲';
+        }
+    }
+
+    function sendSimCmd(type) {
+        let payload = {};
+        const panelIdx = parseInt(document.getElementById('demo-panel').value, 10);
+
+        if (type === 'fault') {
+            const fault = document.getElementById('demo-fault').value;
+            payload = { cmd: 'set_fault', panel: panelIdx, value: fault };
+        } else if (type === 'weather') {
+            const w = document.getElementById('demo-weather').value;
+            payload = { cmd: 'set_weather', value: w };
+        } else if (type === 'speed') {
+            const spd = parseInt(document.getElementById('demo-speed').value, 10);
+            payload = { cmd: 'set_speed', value: spd };
+        }
+
+        fetch(API + '/api/sim', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        }).catch(err => console.error('Sim Cmd error:', err));
+    }
+
+    // --- DARK / LIGHT THEME SWITCH ---
+    function toggleTheme() {
+        document.body.classList.toggle('dark');
+        const isDark = document.body.classList.contains('dark');
+        document.getElementById('theme-icon').innerText = isDark ? '☀️' : '🌙';
+        document.getElementById('theme-text').innerText = isDark ? 'Light' : 'Dark';
+    }
+
+    // Fallback snapshot data for immediate preview
+    const sampleSnapshot = {
+        ml: "ML model",
+        ml_connected: true,
+        site: {
+            power_w: 485,
+            node_mw: 420,
+            asleep: 0,
+            node_wh: 12.4,
+            tap_l: 1.2,
+            spray_l: 3.8,
+            tap_open: 0,
+            loss_inr_per_day: 24,
+            history: [310, 340, 380, 410, 450, { p: 485, c: true }, 480, 485],
+            forecast_kwh_7d: [3.2, 3.5, 3.1, 2.9, 3.6, 3.8, 3.4],
+            forecast_clean_kwh_7d: [3.8, 3.9, 3.6, 3.5, 4.0, 4.1, 3.9]
+        },
+        weather: { rain_48h: 0, raining: false, ambient_c: 31.5 },
+        panels: [
+            {
+                id: 0,
+                mode: "active",
+                reading: {
+                    voltage_v: 38.2,
+                    current_a: 6.4,
+                    ldr_lux: 45000,
+                    ldr_corners_lux: [45000, 44000, 43000, 46000],
+                    temps_c: [[32, 33, 34, 35], [33, 34, 39.5, 35]],
+                    clean_state: 0
+                },
+                decision: { state: "dust", efficiency_loss_pct: 7.5, loss_inr_per_day: 14, reason: "Dust layer causing thermal gradient." },
+                age_s: 2
+            },
+            {
+                id: 1,
+                mode: "active",
+                reading: {
+                    voltage_v: 39.0,
+                    current_a: 6.2,
+                    ldr_lux: 46000,
+                    ldr_corners_lux: [46000, 45500, 45000, 46200],
+                    temps_c: [[30, 31, 31, 32], [30, 31, 32, 31]],
+                    clean_state: 0
+                },
+                decision: { state: "ok", efficiency_loss_pct: 1.2, loss_inr_per_day: 2, reason: "Panel operating at peak efficiency." },
+                age_s: 1
+            }
+        ],
+        log: [
+            { t: Math.floor(Date.now() / 1000) - 30, msg: "ML Model evaluated panel #0: Dust detected." },
+            { t: Math.floor(Date.now() / 1000) - 120, msg: "Auto-clean cycle complete on Panel #1." }
+        ]
+    };
+
+    draw(sampleSnapshot);
+
+    window.onload = function() {
+        connect();
+    };
+</script>
+</body>
+</html>

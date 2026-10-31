@@ -10,13 +10,13 @@ The three parts talk through these JSON shapes. Change them only after telling t
   "voltage_v": 18.2,
   "current_a": 4.1,
   "ldr_lux": 54000,
-  "temps_c": [[41.2, 41.5, 41.0], [41.3, 47.9, 41.1]],
+  "temps_c": [[41.2, 41.5, 41.0, 41.4], [41.3, 47.9, 41.1, 41.2]],
   "tank_level_pct": 70,
   "clean_state": 0,
   "sim_clock": "Day 1 14:20"
 }
 ```
-`temps_c` is the thermal grid, rows x columns of analog temperature sensors under the panel.
+`temps_c` is the thermal grid: 2 rows x 4 columns = 8 analog temperature sensors under each panel (one CD4051 mux). Several panels (P1, P2, P3) each have their own node.
 `clean_state`: 0 idle, 1 water flush, 2 air dry. `sim_clock` exists only in the simulator (the real ESP32 has no clock; the API stamps `ts`).
 
 ## 2. Decision (ml -> hardware, ui)
@@ -28,7 +28,7 @@ The three parts talk through these JSON shapes. Change them only after telling t
   "efficiency_loss_pct": 8.4,
   "clean_now": true,
   "reason": "uniform heat rise, no rain forecast in 48h",
-  "heatmap": [[0.1, 0.2, 0.1], [0.2, 0.9, 0.1]],
+  "heatmap": [[0.1, 0.2, 0.1, 0.1], [0.2, 0.9, 0.1, 0.1]],
   "forecast_kwh_7d": [3.1, 3.4, 2.9, 3.3, 3.5, 3.2, 3.0],
   "loss_inr_per_day": 12.5,
   "clean_cost_inr": 2.0
@@ -53,3 +53,16 @@ Cycle: solenoid water pulse first, then blower/air dry. Hardware also has its ow
 | UI -> API | `POST /api/clean` | customer's manual "Clean now" |
 
 The decision also carries `forecast_kwh_7d` (with current dirt) and `forecast_clean_kwh_7d` (if the panel were clean).
+
+## What the UI receives (`GET /events`, one JSON per message)
+```json
+{
+  "panels": [ { "id": "P1", "reading": {..}, "decision": {..}, "history": [{"p": 71.0, "c": false}], "age_s": 0.8 } ],
+  "site":   { "power_w": 198.0, "loss_inr_per_day": 17.4, "history": [{"p": 198.0, "c": false}],
+              "forecast_kwh_7d": [..7..], "forecast_clean_kwh_7d": [..7..] },
+  "weather": { "rain_48h": false, "raining": false, "ambient_c": 31.9, "day_factor": [..7..] },
+  "log": [{"t": "12:07:01", "msg": "P2: cleaning finished."}],
+  "ml": "rules", "econ": { "panel_kw": 1.5, "tariff": 8.0, "clean_cost": 2.0 }
+}
+```
+`POST /api/clean` body `{"panel_id":"P2"}` washes one panel, `{}` washes all.

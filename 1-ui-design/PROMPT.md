@@ -20,14 +20,14 @@ TASK: Redesign index.html into a polished, professional, customer-facing dashboa
 
 DO NOT CHANGE THE DATA LOGIC:
 - Keep the API connection code exactly: the `API` variable (from ?api= query, localStorage, or http://localhost:8000), `connect()` using EventSource(API + '/events'), `draw(m)` receiving one JSON snapshot per message, and the "Clean now" button doing fetch(API + '/api/clean', {method:'POST', body:'{}'}).
-- Keep every field binding. Shape of m is in sample-snapshot.json: m.reading (voltage_v, current_a, ldr_lux, temps_c as a 2x3 grid, tank_level_pct, clean_state 0/1/2, sim_clock), m.decision (state: ok|dust|shading|hotspot|fault, efficiency_loss_pct, loss_inr_per_day, clean_cost_inr, clean_now, reason, forecast_kwh_7d, forecast_clean_kwh_7d), m.weather (rain_48h, raining, ambient_c), m.history (array of {p: watts, c: true if a wash just finished}), m.log (array of {t, msg}), m.age_s (seconds since last reading; over 8 means panel offline), m.econ, m.ml.
+- Keep every field binding. Shape of m is in sample-snapshot.json: m.panels (array, one per solar panel: id, reading {voltage_v, current_a, ldr_lux, temps_c as a 2-row x 4-column grid of 8 sensor temperatures, tank_level_pct, clean_state 0/1/2, sim_clock}, decision {state: ok|dust|shading|hotspot|fault, efficiency_loss_pct, loss_inr_per_day, clean_cost_inr, clean_now, reason}, history [{p: watts, c: true if a wash just finished}], age_s: seconds since last reading, over 8 means that panel is offline), m.site (power_w total, loss_inr_per_day total, history, forecast_kwh_7d, forecast_clean_kwh_7d), m.weather (rain_48h, raining, ambient_c), m.log (array of {t, msg}), m.ml, m.econ. The per-panel "Clean now" button does fetch(API + '/api/clean', {method:'POST', body: JSON.stringify({panel_id: id})}).
 - Remove nothing that exists. You may restyle, rearrange and add.
 
 DESIGN BRIEF:
 - Look: clean, modern, trustworthy energy-tech product. Calm and premium, not a hacker dashboard. Palette: deep navy (#0B1D33), sun amber (#FFB703) as the single accent, soft off-white cards; light theme by default plus a dark-mode toggle.
 - Top: product name with a small sun logo (inline SVG), a live status pill (green "Panel online" / red "Offline"), site time.
 - Hero row: a big plain-English status card, e.g. "Your panel is healthy" / "Dust is costing you Rs 21 a day, cleaning now" / "Cracked cell detected, technician needed". Large number for power output in watts, with today's energy in kWh if you can estimate it from history.
-- Panel thermal map: draw the panel as a realistic solar panel (2 rows x 3 columns of cells with a frame and grid lines), each cell colored by its temperature from temps_c (cool blue to hot red) with the temperature written on it. Show a water-drops animation when clean_state is 1 and a wind-streaks animation when it is 2. Highlight an overheating cell with a pulsing outline.
+- THERMAL HEATMAP PER PANEL (the centrepiece): for EACH panel draw a smooth, continuous thermal heatmap (like a thermal camera image, not coloured boxes) interpolated from the 2x4 temps_c sensor grid, for example with canvas and a Gaussian blend of the sensor points, colour scale blue to cyan to green to yellow to orange to red to white-hot, scaled to that panel's own min and max so a single hot cell stands out. Overlay the solar-cell grid lines, a dot and the temperature at each sensor, a pulsing ring on the hottest point when it is more than 4 degrees above the median, and a small colour legend. Show a water-drops animation over the panel when clean_state is 1 and a wind-streaks animation when it is 2. Panels sit side by side in a responsive grid, each with its state badge, power, power lost, rupees lost per day, water level, decision reason and its own Clean button.
 - Decision card: state shown as a colored badge, the reason in plain language, and three numbers: power lost %, money lost per day (Rs), cost of one wash (Rs).
 - Power chart: smooth area chart of m.history, with a blue marker where c is true labelled "washed". Pure SVG, no libraries.
 - 7-day forecast: bar chart, solid bars from forecast_kwh_7d with dashed ghost bars from forecast_clean_kwh_7d, day labels Today, Tomorrow, then weekday names.
@@ -43,14 +43,14 @@ Return the full file, no explanations, no placeholders, no "rest unchanged".
 ## Prompt 2: make it robust
 
 ```
-Without changing the design, double check every m.* field in draw() against sample-snapshot.json and make the page robust: if m.reading is null show the waiting skeleton, if forecast arrays are missing show empty bars, never throw an error. Also add a small footer line "Data: <m.ml>, updated <m.age_s> s ago". Return the full file.
+Without changing the design, double check every m.* field in draw() against sample-snapshot.json (including panels that appear later and panels with age_s over 8) and make the page robust: if m.reading is null show the waiting skeleton, if forecast arrays are missing show empty bars, never throw an error. Also add a small footer line "Data: <m.ml>, updated <m.age_s> s ago". Return the full file.
 ```
 
 ## Fine-tune prompts (use as needed)
 
 Bigger, more realistic panel:
 ```
-Make the panel thermal map the visual centerpiece: bigger, more realistic (glass reflection, silver busbars, frame), and make the color scale legend clearer.
+Make the per-panel thermal heatmaps the visual centerpiece: bigger, smoother, more like a real thermal-camera image on a real solar panel (frame, glass reflection, silver busbars), with a clearer colour legend.
 ```
 
 Match the Canva design (attach a screenshot):

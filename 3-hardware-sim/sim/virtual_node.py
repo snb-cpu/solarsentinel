@@ -25,8 +25,8 @@ def load_cfg():
     return cfg
 
 class Node:
-    def __init__(self, world, cfg):
-        self.w, self.c = world, cfg
+    def __init__(self, world, cfg, pid="P1"):
+        self.w, self.c, self.pid = world, cfg, pid
         # the imperfect real hardware in front of the ADC (what calibration is for)
         self.div_real = cfg["VOLT_DIV"] * 1.01
         self.zero_real = cfg["CURR_ZERO_V"] + 0.005
@@ -57,7 +57,7 @@ class Node:
         lux = self.adc_volts(self.w.lux() / self.c["LDR_MAX_LUX"] * 3.3) / 3.3 * self.c["LDR_MAX_LUX"]
         R, C = int(self.c["GRID_ROWS"]), int(self.c["GRID_COLS"])
         grid = [[round(self.read_temp(r * C + k), 1) for k in range(C)] for r in range(R)]
-        return {"panel_id": "P1", "voltage_v": round(v, 2), "current_a": round(a, 2), "ldr_lux": round(lux),
+        return {"panel_id": self.pid, "voltage_v": round(v, 2), "current_a": round(a, 2), "ldr_lux": round(lux),
                 "temps_c": grid, "tank_level_pct": round(self.w.tank),
                 "clean_state": {"IDLE": 0, "WATER": 1, "AIR": 2}[self.cs],
                 "sim_clock": f"Day {self.w.day()} {int(self.w.hour()):02d}:{int(self.w.hour() % 1 * 60):02d}"}
@@ -91,70 +91,86 @@ def http(api, path, body=None):
     except Exception: return None
 
 class Sim:
-    def __init__(self, api, speed):
-        self.api, self.speed = api, speed
-        self.w = World(); self.n = Node(self.w, load_cfg()); self.link = False
+    def __init__(self, api, speed, n_panels=3):
+        self.api, self.speed, self.link, self.sel = api, speed, False, 0
+        cfg = load_cfg()
+        self.worlds = [World(dust_mult=[1.0, 1.4, 0.8][i % 3]) for i in range(n_panels)]   # panels collect dust at different rates
+        self.nodes = [Node(w, cfg, f"P{i + 1}") for i, w in enumerate(self.worlds)]       # each panel has its own ESP32, valve, blower, tank
     def weather_feed(self):
-        g = 1 - 0.7 * self.w.cloud
+        w = self.worlds[0]; g = 1 - 0.7 * w.cloud
         f = [round(g, 2)] + [round(random.uniform(0.85, 1.0), 2) for _ in range(6)]
-        if self.w.forecast_rain: f[0] = f[1] = 0.45
-        return {"rain_48h": self.w.forecast_rain or self.w.raining, "day_factor": f, "ambient_c": round(self.w.ambient(), 1), "raining": self.w.raining}
+        if w.forecast_rain: f[0] = f[1] = 0.45
+        return {"rain_48h": w.forecast_rain or w.raining, "day_factor": f, "ambient_c": round(w.ambient(), 1), "raining": w.raining}
+    def sync_env(self):                                          # one sky over all panels
+        w0 = self.worlds[0]
+        for w in self.worlds[1:]:
+            w.cloud, w.raining, w.rain_until, w.storm_until = w0.cloud, w0.raining, w0.rain_until, w0.storm_until
+            w.forecast_rain, w.rain_at = False, None
     def run(self):
         last, t_rep, t_cmd, t_wx = time.time(), 0, 0, 0
         while True:
             now = time.time(); real = now - last; last = now
-            self.w.step(real * self.speed, real, self.n.valve, self.n.blower)
-            self.n.clean_loop(); self.n.timer_check()
+            for k, (w, n) in enumerate(zip(self.worlds, self.nodes)):
+                if k: w.t = self.worlds[0].t - real * self.speed
+                w.step(real * self.speed, real, n.valve, n.blower)
+                if k == 0: self.sync_env()
+                n.clean_loop(); n.timer_check()
             if now - t_rep >= 2.0:
-                t_rep = now; r = http(self.api, "/api/reading", self.n.reading()); self.link = r is not None
+                t_rep = now; self.link = all(http(self.api, "/api/reading", n.reading()) is not None for n in self.nodes)
             if now - t_cmd >= 1.0:
-                t_cmd = now; c = http(self.api, "/api/command?panel=P1")
-                if c and c.get("action") == "clean": self.n.start_clean(c.get("water_ms", 4000), c.get("air_ms", 8000), c.get("why", "command from API"))
+                t_cmd = now
+                for n in self.nodes:
+                    c = http(self.api, f"/api/command?panel={n.pid}")
+                    if c and c.get("action") == "clean": n.start_clean(c.get("water_ms", 4000), c.get("air_ms", 8000), c.get("why", "command from API"))
             if now - t_wx >= 5.0:
                 t_wx = now; http(self.api, "/api/weather", self.weather_feed())
             time.sleep(0.1)
     def state(self):
-        w, n = self.w, self.n
-        return {"clock": f"Day {w.day()} {int(w.hour()):02d}:{int(w.hour() % 1 * 60):02d}", "speed": self.speed, "link": self.link, "api": self.api,
-                "sun_wm2": round(w.irradiance()), "ambient_c": round(w.ambient(), 1), "cloud": round(w.cloud, 2), "raining": w.raining,
-                "forecast_rain": w.forecast_rain, "soil_pct": round(sum(w.soil) / 6 * 100, 1), "tank": round(w.tank), "faults": w.faults,
-                "cell_temps": [round(x, 1) for x in w.tcell], "node_state": n.cs, "valve": n.valve, "blower": n.blower, "timer": n.timer_on,
-                "storm": w.t < w.storm_until, "events": n.events[-12:]}
+        w0 = self.worlds[0]
+        return {"clock": f"Day {w0.day()} {int(w0.hour()):02d}:{int(w0.hour() % 1 * 60):02d}", "speed": self.speed, "link": self.link, "api": self.api,
+                "sun_wm2": round(w0.irradiance()), "ambient_c": round(w0.ambient(), 1), "cloud": round(w0.cloud, 2), "raining": w0.raining,
+                "forecast_rain": w0.forecast_rain, "storm": w0.t < w0.storm_until, "timer": self.nodes[0].timer_on, "sel": self.sel,
+                "panels": [{"id": n.pid, "soil_pct": round(sum(w.soil) / len(w.soil) * 100, 1), "tank": round(w.tank), "faults": w.faults, "node_state": n.cs,
+                            "valve": n.valve, "blower": n.blower, "temps": [round(x, 1) for x in w.tcell]} for w, n in zip(self.worlds, self.nodes)],
+                "events": sorted(sum([[f"{n.pid} {e}" for e in n.events[-6:]] for n in self.nodes], []))[-12:]}
     def do(self, b):
-        w, c = self.w, b.get("cmd")
-        if c == "storm": w.storm_until = w.t + 3600
-        elif c == "bird": w.soil[random.randrange(6)] = min(0.4, 0.4)
+        c, i = b.get("cmd"), int(b.get("panel", self.sel))
+        w = self.worlds[i % len(self.worlds)]
+        if c == "select": self.sel = i
+        elif c == "storm": self.worlds[0].storm_until = self.worlds[0].t + 3600
+        elif c == "bird": w.soil[random.randrange(len(w.soil))] = 0.4
         elif c in ("crack", "hotspot", "shade"): w.faults[c] = not w.faults[c]
         elif c == "repair": w.faults = {"crack": False, "hotspot": False, "shade": False}
-        elif c == "rain_forecast": w.forecast_rain = not w.forecast_rain; w.rain_at = None if not w.forecast_rain else w.rain_at
-        elif c == "timer": self.n.timer_on = not self.n.timer_on
+        elif c == "rain_forecast": w0 = self.worlds[0]; w0.forecast_rain = not w0.forecast_rain; w0.rain_at = None
+        elif c == "timer":
+            for n in self.nodes: n.timer_on = not n.timer_on
         elif c == "speed": self.speed = max(1, min(3000, float(b.get("value", self.speed))))
-        elif c == "dirty": w.soil = [0.12] * 6
+        elif c == "dirty": w.soil = [0.12] * len(w.soil)
 
 PAGE = """<!doctype html><meta charset=utf-8><title>Sim console</title><style>body{font:15px system-ui;background:#101820;color:#e8eef5;margin:20px}
 button{margin:4px;padding:10px 14px;border-radius:8px;border:1px solid #345;background:#16283c;color:#e8eef5;cursor:pointer}button.on{background:#ffb703;color:#000}
-.g{display:grid;grid-template-columns:1fr 1fr;gap:14px}.c{background:#16283c;padding:14px;border-radius:12px}pre{white-space:pre-wrap;font-size:12px}h3{margin:0 0 8px;color:#8fa9c2}</style>
-<h2>Laptop A &middot; virtual panel + ESP32</h2><div class=g><div class=c><h3>World</h3><pre id=w></pre></div><div class=c><h3>ESP32 node</h3><pre id=n></pre></div></div>
-<div class=c style="margin-top:14px"><h3>Cause trouble</h3>
+select{padding:8px;font-size:15px;border-radius:8px}.g{display:grid;grid-template-columns:1fr 1fr;gap:14px}.c{background:#16283c;padding:14px;border-radius:12px}pre{white-space:pre-wrap;font-size:12px}h3{margin:0 0 8px;color:#8fa9c2}</style>
+<h2>Laptop A &middot; virtual panels + ESP32s</h2><div class=g><div class=c><h3>World</h3><pre id=w></pre></div><div class=c><h3>Panels / ESP32 nodes</h3><pre id=n></pre></div></div>
+<div class=c style="margin-top:14px"><h3>Cause trouble on panel: <select id=sel onchange="d('select')"></select> &nbsp; (storm, rain and timer affect all panels)</h3>
 <button onclick="d('storm')">Dust storm (1 h)</button><button onclick="d('bird')">Bird dropping</button><button onclick="d('dirty')">Make dirty now</button>
 <button id=b_shade onclick="d('shade')">Shade</button><button id=b_hotspot onclick="d('hotspot')">Hotspot</button><button id=b_crack onclick="d('crack')">Cracked cell</button>
 <button onclick="d('repair')">Repair faults</button><button id=b_rain onclick="d('rain_forecast')">Rain forecast</button><button id=b_timer onclick="d('timer')">2 h timer</button>
 <br>Speed: <input id=sp type=range min=30 max=1200 value=120 oninput="d('speed',this.value)"> <span id=spv></span> sim-s per real second</div>
 <div class=c style="margin-top:14px"><h3>Node log</h3><pre id=l></pre></div>
-<script>const d=(cmd,value)=>fetch('/do',{method:'POST',body:JSON.stringify({cmd,value})});
-async function t(){const s=await (await fetch('/state')).json();
-w.textContent=`Clock ${s.clock}\\nSun ${s.sun_wm2} W/m2   Ambient ${s.ambient_c} C   Cloud ${s.cloud}\\nRaining: ${s.raining}   Rain forecast: ${s.forecast_rain}\\nDust on glass: ${s.soil_pct}%${s.storm?'  (STORM)':''}\\nTank: ${s.tank}%\\nTrue cell temps: ${s.cell_temps.join('  ')}`;
-n.textContent=`API ${s.api}: ${s.link?'connected':'NOT CONNECTED'}\\nState: ${s.node_state}\\nValve: ${s.valve?'ON':'off'}   Blower: ${s.blower?'ON':'off'}\\n2 h timer: ${s.timer?'on':'off'}`;
-l.textContent=s.events.join('\\n');spv.textContent=s.speed;
-for(const k of ['shade','hotspot','crack'])document.getElementById('b_'+k).className=s.faults[k]?'on':'';
-b_rain.className=s.forecast_rain?'on':'';b_timer.className=s.timer?'on':'';}
+<script>let S=null;const d=(cmd,value)=>fetch('/do',{method:'POST',body:JSON.stringify({cmd,value,panel:+sel.value})});
+async function t(){S=await (await fetch('/state')).json();
+if(!sel.options.length){S.panels.forEach((p,i)=>sel.add(new Option(p.id,i)));sel.value=S.sel}
+w.textContent=`Clock ${S.clock}\nSun ${S.sun_wm2} W/m2   Ambient ${S.ambient_c} C   Cloud ${S.cloud}\nRaining: ${S.raining}   Rain forecast: ${S.forecast_rain}   Storm: ${S.storm}`;
+n.textContent=`API ${S.api}: ${S.link?'connected':'NOT CONNECTED'}\n`+S.panels.map(p=>`${p.id}  dust ${p.soil_pct}%  tank ${p.tank}%  node ${p.node_state}${p.valve?' VALVE':''}${p.blower?' BLOWER':''}  faults: ${Object.keys(p.faults).filter(k=>p.faults[k]).join(',')||'none'}`).join('\n');
+l.textContent=S.events.join('\n');spv.textContent=S.speed;const f=S.panels[+sel.value].faults;
+for(const k of ['shade','hotspot','crack'])document.getElementById('b_'+k).className=f[k]?'on':'';b_rain.className=S.forecast_rain?'on':'';b_timer.className=S.timer?'on':'';}
 setInterval(t,700);t();</script>"""
 
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--api", default="http://localhost:8000"); ap.add_argument("--speed", type=float, default=120)
-    ap.add_argument("--console-port", type=int, default=8100); a = ap.parse_args()
-    sim = Sim(a.api.rstrip("/"), a.speed)
+    ap.add_argument("--console-port", type=int, default=8100); ap.add_argument("--panels", type=int, default=3); a = ap.parse_args()
+    sim = Sim(a.api.rstrip("/"), a.speed, a.panels)
     threading.Thread(target=sim.run, daemon=True).start()
     class H(BaseHTTPRequestHandler):
         def log_message(self, *x): pass

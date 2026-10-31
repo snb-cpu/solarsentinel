@@ -6,87 +6,101 @@
 *{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--txt);font:15px/1.4 -apple-system,Segoe UI,Arial,sans-serif}
 header{display:flex;align-items:center;gap:14px;padding:14px 24px;border-bottom:1px solid var(--line)}
 header h1{font-size:22px;margin:0}header small{color:var(--mut)}
-.live{margin-left:auto;display:flex;align-items:center;gap:10px;color:var(--mut)}.dot{width:10px;height:10px;border-radius:50%;background:var(--ok);animation:p 1.6s infinite}
-@keyframes p{50%{opacity:.35}}
-main{display:grid;grid-template-columns:1.1fr 1fr;gap:18px;padding:18px 24px}
-@media(max-width:900px){main{grid-template-columns:1fr}}
+.live{margin-left:auto;display:flex;align-items:center;gap:10px;color:var(--mut)}.dot{width:10px;height:10px;border-radius:50%;background:#888}
+main{padding:18px 24px;display:grid;gap:18px}
 .card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px}
 h2{margin:0 0 12px;font-size:13px;letter-spacing:.08em;text-transform:uppercase;color:var(--mut)}
-.panel{position:relative;display:grid;grid-template-columns:repeat(3,1fr);grid-template-rows:repeat(2,1fr);gap:6px;background:#0a1626;padding:8px;border-radius:10px;border:3px solid #3a5a86;overflow:hidden}
-.cell{height:110px;border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:22px;font-weight:700;color:#fff;text-shadow:0 1px 3px #0008;transition:background .8s}
+.site{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px}
+.big{background:#0f2441;border-radius:12px;padding:12px 14px}.big b{display:block;font-size:30px}.big span{color:var(--mut);font-size:12px}
+.panels{display:grid;grid-template-columns:repeat(auto-fit,minmax(380px,1fr));gap:18px}
+.ph{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}.ph b{font-size:18px}
+.pill{display:inline-block;padding:4px 14px;border-radius:99px;font-weight:800;font-size:13px;text-transform:uppercase;color:#0b1d33}
+.heat{position:relative;border-radius:10px;overflow:hidden;border:3px solid #3a5a86;background:#0a1626}
+.heat canvas{display:block;width:100%;aspect-ratio:2/1}
 .fx{position:absolute;inset:0;pointer-events:none;opacity:0;transition:opacity .3s}
-.fx.water{background:repeating-linear-gradient(180deg,#4fc3f755 0 12px,#4fc3f700 12px 28px);animation:fall .6s linear infinite}
-.fx.air{background:repeating-linear-gradient(100deg,#ffffff44 0 6px,#ffffff00 6px 40px);animation:blow .5s linear infinite}
+.fx.water{background:repeating-linear-gradient(180deg,#4fc3f766 0 12px,#4fc3f700 12px 28px);animation:fall .6s linear infinite}
+.fx.air{background:repeating-linear-gradient(100deg,#ffffff55 0 6px,#ffffff00 6px 40px);animation:blow .5s linear infinite}
 @keyframes fall{to{background-position:0 28px}}@keyframes blow{to{background-position:40px 0}}
-.legend{display:flex;align-items:center;gap:8px;margin-top:10px;color:var(--mut);font-size:12px}
-.bar{flex:1;height:8px;border-radius:4px;background:linear-gradient(90deg,hsl(205 85% 50%),hsl(50 85% 50%),hsl(0 85% 50%))}
-.tiles{display:grid;grid-template-columns:repeat(5,1fr);gap:10px;margin-top:14px}
-.tile{background:#0f2441;border-radius:10px;padding:10px}.tile b{display:block;font-size:22px}.tile span{color:var(--mut);font-size:12px}
-.pill{display:inline-block;padding:6px 16px;border-radius:99px;font-weight:800;font-size:20px;text-transform:uppercase;color:#0b1d33}
-.dec{display:flex;align-items:center;gap:14px;flex-wrap:wrap}
-.verdict{font-size:20px;font-weight:700}.reason{margin:10px 0;color:#cfe0f1;font-size:16px}
-.kv{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:8px}.kv div{background:#0f2441;border-radius:10px;padding:10px}.kv b{display:block;font-size:22px}.kv span{font-size:12px;color:var(--mut)}
+.legend{display:flex;align-items:center;gap:8px;margin-top:8px;color:var(--mut);font-size:12px}.bar{flex:1;height:8px;border-radius:4px}
+.tiles{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-top:10px}
+.tile{background:#0f2441;border-radius:10px;padding:8px 10px}.tile b{display:block;font-size:19px}.tile span{color:var(--mut);font-size:11px}
+.reason{margin:10px 0 8px;color:#cfe0f1;font-size:14px;min-height:40px}
+button{background:#1b6fd1;color:var(--txt);border:0;border-radius:10px;padding:9px 14px;font-size:14px;cursor:pointer}
+.row2{display:grid;grid-template-columns:1fr 1fr;gap:18px}@media(max-width:900px){.row2{grid-template-columns:1fr}}
+svg{width:100%;height:150px;display:block}
 .bars{display:flex;align-items:flex-end;gap:10px;height:130px}.col{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;height:100%;position:relative}
-.ghost{position:absolute;bottom:20px;width:100%;border:1px dashed #6f8db1;border-radius:4px}.now{position:relative;width:100%;background:var(--amb);border-radius:4px;margin-bottom:0}.col small{color:var(--mut);margin-top:4px;font-size:11px}
-.controls{display:flex;flex-wrap:wrap;gap:8px}button{background:#0f2441;color:var(--txt);border:1px solid var(--line);border-radius:10px;padding:10px 14px;font-size:14px;cursor:pointer}
-button:hover{border-color:var(--amb)}button.on{background:var(--amb);color:#0b1d33;border-color:var(--amb);font-weight:700}button.go{background:#1b6fd1;border-color:#1b6fd1}
+.ghost{position:absolute;bottom:20px;width:100%;border:1px dashed #6f8db1;border-radius:4px}.now{position:relative;width:100%;background:var(--amb);border-radius:4px}.col small{color:var(--mut);margin-top:4px;font-size:11px;text-align:center}
 .log{max-height:150px;overflow:auto;font-size:13px;color:#cfe0f1}.log div{padding:3px 0;border-bottom:1px solid #1a3558}.log i{color:var(--mut);font-style:normal;margin-right:8px}
-.full{grid-column:1/-1}svg{width:100%;height:150px;display:block}
 .note{color:var(--mut);font-size:12px;margin-top:8px}
 </style></head><body>
 <header><h1>SolarSentinel</h1><small>Autonomous solar monitoring and cleaning &middot; Team TRUENO</small>
 <div class="live"><span id="clock"></span><span class="dot" id="dot"></span><span id="src">connecting...</span></div></header>
 <main>
- <section class="card"><h2>Panel thermal map (live temperature sensors)</h2>
-  <div class="panel" id="panel"></div>
-  <div class="legend"><span>32&deg;C</span><div class="bar"></div><span>52&deg;C</span></div>
-  <div class="tiles">
-   <div class="tile"><span>Voltage</span><b id="v">-</b></div><div class="tile"><span>Current</span><b id="i">-</b></div>
-   <div class="tile"><span>Power</span><b id="p">-</b></div><div class="tile"><span>Sunlight</span><b id="l">-</b></div><div class="tile"><span>Water tank</span><b id="t">-</b></div>
-  </div></section>
- <section class="card"><h2>AI decision</h2>
-  <div class="dec"><span class="pill" id="state">-</span><span class="verdict" id="verdict"></span></div>
-  <div class="reason" id="reason"></div>
-  <div class="kv"><div><b id="loss">-</b><span>power lost</span></div><div><b id="inr">-</b><span>money lost per day</span></div><div><b id="cost">-</b><span>cost of one wash</span></div></div>
-  <div class="note" id="econ"></div></section>
- <section class="card"><h2>Power output</h2><svg id="chart" viewBox="0 0 600 150" preserveAspectRatio="none"></svg>
-  <div class="note">Dashed vertical lines mark a completed wash.</div></section>
- <section class="card"><h2>7-day energy forecast (kWh)</h2><div class="bars" id="fc"></div>
-  <div class="note">Solid = with today's dirt. Dashed = if the panel were clean.</div></section>
- <section class="card"><h2>Weather and actions</h2>
-  <div class="kv"><div><b id="wx">-</b><span>forecast</span></div><div><b id="amb">-</b><span>air temperature</span></div><div><b id="nodest">-</b><span>cleaning system</span></div></div>
-  <div class="controls" style="margin-top:12px"><button class="go" id="cleanbtn">Clean now</button></div>
-  <div class="note">The system cleans on its own when it makes money sense. This button is for a manual wash.</div></section>
+ <section class="site" id="site"></section>
+ <section class="panels" id="panels"></section>
+ <div class="note">Thermal map: a smooth heat picture built from the temperature sensors under each panel. Colours are relative to that panel, so a single overheating cell stands out. The ringed spot is the hottest point.</div>
+ <div class="row2">
+  <section class="card"><h2>Total power output</h2><svg id="chart" viewBox="0 0 600 150" preserveAspectRatio="none"></svg><div class="note">Dashed vertical lines mark a completed wash.</div></section>
+  <section class="card"><h2>7-day energy forecast, all panels (kWh)</h2><div class="bars" id="fc"></div><div class="note">Solid = with today's dirt. Dashed = if every panel were clean.</div></section>
+ </div>
  <section class="card"><h2>Activity</h2><div class="log" id="log"></div></section>
 </main>
 <script>
 const $=id=>document.getElementById(id), COL={ok:'#2ecc71',dust:'#ffb703',shading:'#6fa8dc',hotspot:'#ff6b4a',fault:'#e63946'};
 const NAME={ok:'healthy',dust:'dusty',shading:'shaded',hotspot:'overheating',fault:'cracked cell'};
 let API=new URLSearchParams(location.search).get('api')||localStorage.getItem('api')||(location.protocol.startsWith('http')&&location.port==='8000'?location.origin:'http://localhost:8000');
-API=API.replace(/\/$/,'');
-$('cleanbtn').onclick=()=>fetch(API+'/api/clean',{method:'POST',body:'{}'});
-$('panel').innerHTML='<div class="cell"></div>'.repeat(6)+'<div class="fx water" id="fxw"></div><div class="fx air" id="fxa"></div>';
-const tc=t=>{const x=Math.min(1,Math.max(0,(t-32)/20));return `hsl(${Math.round(x<.5?205-x*2*155:50-(x-.5)*2*50)} 85% 50%)`};
+API=API.replace(/\/$/,'');try{localStorage.setItem('api',API)}catch(e){}
+// ---- thermal colour map: blue -> cyan -> green -> yellow -> orange -> red -> white-hot
+const STOPS=[[30,[20,30,110]],[36,[30,130,200]],[41,[40,190,170]],[46,[250,225,60]],[51,[250,140,30]],[56,[225,40,30]],[62,[255,235,220]]];
+function heat(f){f=Math.min(1,Math.max(0,f));const t=30+f*32;for(let k=1;k<STOPS.length;k++){if(t<=STOPS[k][0]){const[a,ca]=STOPS[k-1],[b,cb]=STOPS[k],u=(t-a)/(b-a);return ca.map((c,j)=>c+(cb[j]-c)*u)}}return STOPS[STOPS.length-1][1]}
+const GRAD='linear-gradient(90deg,'+STOPS.map(([t,c])=>`rgb(${c}) ${(t-30)/32*100}%`).join(',')+')';
+const off=document.createElement('canvas');off.width=96;off.height=48;const octx=off.getContext('2d');
+function drawHeat(cv,temps,pulse){
+ const R=temps.length,C=temps[0].length,W=cv.width,H=cv.height,ctx=cv.getContext('2d');
+ const flat0=temps.flat(),s0=[...flat0].sort((a,b)=>a-b),med0=s0[Math.floor(flat0.length/2)],lo=Math.min(s0[0],med0-5),hi=Math.max(s0[s0.length-1],med0+7),img=octx.createImageData(96,48),sig=0.17;
+ for(let y=0;y<48;y++)for(let x=0;x<96;x++){const u=(x+.5)/96,v=(y+.5)/48;let sw=0,st=0;
+  for(let r=0;r<R;r++)for(let c=0;c<C;c++){const dx=u-(c+.5)/C,dy=(v-(r+.5)/R)*.5,w=Math.exp(-(dx*dx+dy*dy)/(2*sig*sig));sw+=w;st+=w*temps[r][c]}
+  const rgb=heat((st/sw-lo)/(hi-lo)*0.8+0.1),i=(y*96+x)*4;img.data[i]=rgb[0];img.data[i+1]=rgb[1];img.data[i+2]=rgb[2];img.data[i+3]=255}
+ octx.putImageData(img,0,0);ctx.imageSmoothingEnabled=true;ctx.imageSmoothingQuality='high';ctx.drawImage(off,0,0,W,H);cv.dataset.range=lo.toFixed(1)+'|'+hi.toFixed(1);
+ // solar-cell grid lines
+ ctx.strokeStyle='rgba(255,255,255,.28)';ctx.lineWidth=2;
+ for(let c=1;c<C;c++){ctx.beginPath();ctx.moveTo(W*c/C,0);ctx.lineTo(W*c/C,H);ctx.stroke()}
+ for(let r=1;r<R;r++){ctx.beginPath();ctx.moveTo(0,H*r/R);ctx.lineTo(W,H*r/R);ctx.stroke()}
+ // sensor dots + readings, hottest point ringed
+ const flat=temps.flat(),sorted=[...flat].sort((a,b)=>a-b),med=sorted[Math.floor(flat.length/2)],mx=Math.max(...flat);
+ ctx.font=`bold ${Math.round(H/11)}px system-ui`;ctx.textAlign='center';ctx.textBaseline='middle';
+ for(let r=0;r<R;r++)for(let c=0;c<C;c++){const x=W*(c+.5)/C,y=H*(r+.5)/R,hot=temps[r][c]===mx&&mx-med>4;
+  ctx.fillStyle='rgba(0,0,0,.45)';ctx.beginPath();ctx.arc(x,y-H/16,H/42,0,7);ctx.fill();
+  ctx.fillStyle='#fff';ctx.shadowColor='#000';ctx.shadowBlur=4;ctx.fillText(temps[r][c].toFixed(1)+'°',x,y+H/16);ctx.shadowBlur=0;
+  if(hot){ctx.strokeStyle='#fff';ctx.lineWidth=4;ctx.beginPath();ctx.arc(x,y,H/6+pulse*H/30,0,7);ctx.stroke()}}
+}
+// ---- build / update cards
+const cards={};
+function card(id){if(cards[id])return cards[id];
+ const el=document.createElement('section');el.className='card';
+ el.innerHTML=`<div class="ph"><b>Panel ${id}</b><span class="pill"></span></div>
+ <div class="heat"><canvas width="640" height="320"></canvas><div class="fx water"></div><div class="fx air"></div></div>
+ <div class="legend"><span class="lo">-</span><div class="bar"></div><span class="hi">-</span></div>
+ <div class="tiles"><div class="tile"><b class="w">-</b><span>power</span></div><div class="tile"><b class="loss">-</b><span>power lost</span></div><div class="tile"><b class="inr">-</b><span>lost per day</span></div><div class="tile"><b class="tank">-</b><span>water</span></div></div>
+ <div class="reason"></div><button>Clean this panel now</button>`;
+ el.querySelector('button').onclick=()=>fetch(API+'/api/clean',{method:'POST',body:JSON.stringify({panel_id:id})});
+ el.querySelector('.bar').style.background=GRAD;$('panels').appendChild(el);return cards[id]={el,cv:el.querySelector('canvas'),pill:el.querySelector('.pill'),w:el.querySelector('.fx.water'),a:el.querySelector('.fx.air'),last:null}}
+let pulse=0;setInterval(()=>{pulse=(Math.sin(Date.now()/300)+1)/2;for(const k in cards){const c=cards[k];if(c.last){drawHeat(c.cv,c.last,pulse);const[l,h]=c.cv.dataset.range.split('|');c.el.querySelector('.lo').textContent=l+'\u00b0 cooler';c.el.querySelector('.hi').textContent='hotter '+h+'\u00b0'}}},120);
 function draw(m){
- const r=m.reading,d=m.decision;
- if(!r){$('src').textContent='waiting for the panel node...';$('dot').style.background='#888';return}
- const online=m.age_s!==null&&m.age_s<8;$('dot').style.background=online?'#2ecc71':'#e63946';
- $('src').textContent=online?'panel online':'panel offline ('+Math.round(m.age_s)+' s ago)';$('clock').textContent=r.sim_clock?('Site time: '+r.sim_clock):'';
- const cells=document.querySelectorAll('#panel .cell');
- r.temps_c.flat().forEach((t,k)=>{cells[k].style.background=tc(t);cells[k].textContent=t.toFixed(1)+'\u00b0'});
- $('fxw').style.opacity=r.clean_state===1?1:0;$('fxa').style.opacity=r.clean_state===2?1:0;
- const pw=r.voltage_v*r.current_a;
- $('v').textContent=r.voltage_v.toFixed(1)+' V';$('i').textContent=r.current_a.toFixed(2)+' A';$('p').textContent=pw.toFixed(0)+' W';
- $('l').textContent=Math.round(r.ldr_lux/1000)+'k lux';$('t').textContent=r.tank_level_pct<0?'n/a':r.tank_level_pct+'%';
- const s=$('state');s.textContent=NAME[d.state];s.style.background=COL[d.state];
- $('verdict').textContent=r.clean_state===1?'Washing: water flush':r.clean_state===2?'Drying: air blast':(d.clean_now?'Clean now':'No wash needed');
- $('reason').textContent=d.reason;$('loss').textContent=d.efficiency_loss_pct+'%';$('inr').textContent='Rs '+d.loss_inr_per_day;$('cost').textContent='Rs '+d.clean_cost_inr;
- $('econ').textContent=`Money maths for a ${m.econ.array_kw} kW rooftop at Rs ${m.econ.tariff}/kWh. The system washes only when the loss costs more than a wash. Decisions by: ${m.ml}.`;
- const w=m.weather;$('wx').textContent=w.raining?'Raining':(w.rain_48h?'Rain soon':'No rain');$('amb').textContent=w.ambient_c==null?'-':w.ambient_c+'\u00b0C';
- $('nodest').textContent=r.clean_state===0?'Ready':(r.clean_state===1?'Washing':'Drying');
- const mx=Math.max(...d.forecast_clean_kwh_7d)*1.1,days=['Today','+1','+2','+3','+4','+5','+6'];
- $('fc').innerHTML=d.forecast_kwh_7d.map((k,n)=>{const c=d.forecast_clean_kwh_7d[n];return `<div class="col"><div class="ghost" style="height:${c/mx*100}px"></div><div class="now" style="height:${k/mx*100}px"></div><small>${days[n]}<br>${k}</small></div>`}).join('');
- const h=m.history,top=Math.max(120,...h.map(x=>x.p))*1.1,W=600,Hh=150,n=Math.max(h.length-1,1);
+ const P=m.panels;if(!P.length){$('src').textContent='waiting for the panel nodes...';return}
+ const online=P.every(p=>p.age_s<8);$('dot').style.background=online?'#2ecc71':'#e63946';
+ $('src').textContent=online?P.length+' panels online':'a panel is offline';$('clock').textContent=P[0].reading.sim_clock?('Site time: '+P[0].reading.sim_clock):'';
+ const healthy=P.filter(p=>p.decision.state==='ok').length,w=m.weather;
+ $('site').innerHTML=`<div class="big"><b>${m.site.power_w.toFixed(0)} W</b><span>total power now</span></div><div class="big"><b>${healthy} / ${P.length}</b><span>panels healthy</span></div>
+ <div class="big"><b>Rs ${m.site.loss_inr_per_day}</b><span>lost per day to dirt and faults</span></div><div class="big"><b>${w.raining?'Raining':(w.rain_48h?'Rain soon':'No rain')}</b><span>${w.ambient_c==null?'':w.ambient_c+'°C air'}</span></div>`;
+ for(const p of P){const c=card(p.id),r=p.reading,d=p.decision;c.last=r.temps_c;
+  c.pill.textContent=r.clean_state===1?'washing':r.clean_state===2?'drying':NAME[d.state];c.pill.style.background=r.clean_state?'#4fc3f7':COL[d.state];
+  c.w.style.opacity=r.clean_state===1?1:0;c.a.style.opacity=r.clean_state===2?1:0;
+  const q=c.el.querySelector.bind(c.el);q('.w').textContent=(r.voltage_v*r.current_a).toFixed(0)+' W';q('.loss').textContent=d.efficiency_loss_pct+'%';
+  q('.inr').textContent='Rs '+d.loss_inr_per_day;q('.tank').textContent=r.tank_level_pct<0?'n/a':r.tank_level_pct+'%';q('.reason').textContent=d.reason}
+ const mxk=Math.max(...m.site.forecast_clean_kwh_7d)*1.1,days=['Today','+1','+2','+3','+4','+5','+6'];
+ $('fc').innerHTML=m.site.forecast_kwh_7d.map((k,n)=>{const c=m.site.forecast_clean_kwh_7d[n];return `<div class="col"><div class="ghost" style="height:${c/mxk*100}px"></div><div class="now" style="height:${k/mxk*100}px"></div><small>${days[n]}<br>${k}</small></div>`}).join('');
+ const h=m.site.history,top=Math.max(120,...h.map(x=>x.p))*1.1,W=600,Hh=150,n=Math.max(h.length-1,1);
  $('chart').innerHTML=`<polyline points="${h.map((x,k)=>`${k/n*W},${Hh-x.p/top*Hh}`).join(' ')}" fill="none" stroke="#ffb703" stroke-width="3"/>`+h.map((x,k)=>x.c?`<line x1="${k/n*W}" x2="${k/n*W}" y1="0" y2="${Hh}" stroke="#4fc3f7" stroke-dasharray="5 4"/>`:'').join('');
  $('log').innerHTML=m.log.slice().reverse().map(l=>`<div><i>${l.t}</i>${l.msg}</div>`).join('');
 }

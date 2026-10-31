@@ -17,7 +17,7 @@
 
 // ---- temperature grid: sensors wired to CD4051 channels 0..N-1 ----
 #define GRID_ROWS 2
-#define GRID_COLS 3                // rows*cols must be <= 8
+#define GRID_COLS 4                // rows*cols must be <= 8 (one CD4051 mux)
 // LM35 = 10 mV per deg C. Per-sensor offsets (deg C) fix sensor-to-sensor error: calibrate against a reference thermometer.
 #define TEMP_MV_PER_C 10.0f
 static const float TEMP_OFFSET_C[8] = {0, 0, 0, 0, 0, 0, 0, 0};

@@ -18,8 +18,8 @@ try:
 except Exception:
     ml_decide = None
 
-# Money maths, modelled for a small rooftop array and shown on the dashboard.
-ARRAY_KW, PEAK_SUN_H, TARIFF_INR, CLEAN_COST_INR = 5.0, 4.8, 8.0, 5.0
+# Money maths, per panel (one node = one 1.5 kW string), shown on the dashboard.
+ARRAY_KW, PEAK_SUN_H, TARIFF_INR, CLEAN_COST_INR = 1.5, 4.8, 8.0, 2.0   # per panel: each node watches a 1.5 kW string
 ISC_A = 5.5                   # panel current at 100,000 lux, clean. Calibrate on the real rig.
 MIN_LUX = 20000               # below this, analysis is paused (night / heavy cloud)
 CMD_COOLDOWN_S = 30
@@ -49,44 +49,55 @@ def builtin_decide(r, rain):
 
 class App:
     def __init__(self):
-        self.reading = None; self.decision = None; self.rx = 0.0
+        self.p = {}                       # panel_id -> {reading, decision, rx, history, pending, last_cmd, prev_cs}
         self.weather = {"rain_48h": False, "day_factor": [1, .95, .9, 1, 1, .9, 1], "ambient_c": None, "raining": False}
-        self.history, self.log, self.clients = [], [], []
-        self.pending = None; self.last_cmd = 0.0; self.prev_cs = 0
-        self.lock = threading.Lock(); self.say("API started. Waiting for the node.")
+        self.site_hist, self.washed, self.log, self.clients = [], False, [], []
+        self.lock = threading.Lock(); self.say("API started. Waiting for the panel nodes.")
     def say(self, m):
-        self.log.append({"t": datetime.now().strftime("%H:%M:%S"), "msg": m}); self.log = self.log[-30:]
-    def queue_clean(self, why):
-        self.pending = {"action": "clean", "water_ms": 4000, "air_ms": 8000, "why": why}; self.last_cmd = time.time()
-        self.say(f"Command sent to node: clean ({why})")
+        self.log.append({"t": datetime.now().strftime("%H:%M:%S"), "msg": m}); self.log = self.log[-40:]
+    def queue_clean(self, pid, why):
+        st = self.p[pid]; st["pending"] = {"action": "clean", "water_ms": 4000, "air_ms": 8000, "why": why}; st["last_cmd"] = time.time()
+        self.say(f"{pid}: clean command sent ({why})")
     def on_reading(self, r):
         with self.lock:
-            r["ts"] = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"); self.rx = time.time()
-            if self.reading is None: self.say("Node connected.")
+            pid = r.get("panel_id", "P1"); r["ts"] = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+            if pid not in self.p:
+                self.p[pid] = {"reading": None, "decision": None, "rx": 0.0, "history": [], "pending": None, "last_cmd": 0.0, "prev_cs": 0}
+                self.say(f"{pid}: node connected.")
+            st = self.p[pid]; st["rx"] = time.time()
             d = None
             if ml_decide:
                 try: d = ml_decide(r, self.weather)
                 except Exception: d = None
             d = d if d and "state" in d else builtin_decide(r, self.weather["rain_48h"])
-            f = self.weather["day_factor"]; loss = d["efficiency_loss_pct"]
-            d["forecast_clean_kwh_7d"] = [round(ARRAY_KW * PEAK_SUN_H * x, 1) for x in f]
-            d["forecast_kwh_7d"] = [round(c * (1 - loss / 100), 1) for c in d["forecast_clean_kwh_7d"]]
+            f, loss = self.weather["day_factor"], d["efficiency_loss_pct"]
+            d["forecast_clean_kwh_7d"] = [round(ARRAY_KW * PEAK_SUN_H * x, 2) for x in f]
+            d["forecast_kwh_7d"] = [round(c * (1 - loss / 100), 2) for c in d["forecast_clean_kwh_7d"]]
             cs = r.get("clean_state", 0)
-            if d["clean_now"] and cs == 0 and not self.pending and time.time() - self.last_cmd > CMD_COOLDOWN_S:
-                self.queue_clean("AI decision: " + d["reason"])
-            done = self.prev_cs == 2 and cs == 0
-            if done: self.say("Node finished cleaning.")
-            if cs != self.prev_cs and cs == 1: self.say("Node: water flush")
-            if cs != self.prev_cs and cs == 2: self.say("Node: air dry")
-            self.prev_cs = cs
-            self.reading, self.decision = r, d
-            self.history.append({"p": round(r["voltage_v"] * r["current_a"], 1), "c": done}); self.history = self.history[-90:]
+            if d["clean_now"] and cs == 0 and not st["pending"] and time.time() - st["last_cmd"] > CMD_COOLDOWN_S:
+                self.queue_clean(pid, "AI decision: " + d["reason"])
+            done = st["prev_cs"] == 2 and cs == 0
+            if done: self.say(f"{pid}: cleaning finished."); self.washed = True
+            if cs != st["prev_cs"] and cs == 1: self.say(f"{pid}: water flush")
+            if cs != st["prev_cs"] and cs == 2: self.say(f"{pid}: air dry")
+            st["prev_cs"] = cs; st["reading"], st["decision"] = r, d
+            st["history"].append({"p": round(r["voltage_v"] * r["current_a"], 1), "c": done}); st["history"] = st["history"][-90:]
+            if pid == min(self.p):                                  # one site-power point per round of readings
+                self.site_hist.append({"p": round(sum((x["history"][-1]["p"] if x["history"] else 0) for x in self.p.values()), 1), "c": self.washed})
+                self.site_hist, self.washed = self.site_hist[-90:], False
         self.push()
     def snapshot(self):
         with self.lock:
-            return {"reading": self.reading, "decision": self.decision, "weather": self.weather, "history": self.history, "log": self.log,
-                    "age_s": round(time.time() - self.rx, 1) if self.rx else None, "ml": "ML model" if ml_decide else "rules",
-                    "econ": {"array_kw": ARRAY_KW, "tariff": TARIFF_INR, "clean_cost": CLEAN_COST_INR}}
+            panels = []
+            for pid in sorted(self.p):
+                x = self.p[pid]; panels.append({"id": pid, "reading": x["reading"], "decision": x["decision"], "history": x["history"], "age_s": round(time.time() - x["rx"], 1)})
+            ds = [x["decision"] for x in self.p.values() if x["decision"]]
+            site = {"power_w": round(sum(x["history"][-1]["p"] for x in self.p.values() if x["history"]), 1),
+                    "loss_inr_per_day": round(sum(d["loss_inr_per_day"] for d in ds), 1), "history": self.site_hist,
+                    "forecast_kwh_7d": [round(sum(d["forecast_kwh_7d"][i] for d in ds), 1) for i in range(7)] if ds else [],
+                    "forecast_clean_kwh_7d": [round(sum(d["forecast_clean_kwh_7d"][i] for d in ds), 1) for i in range(7)] if ds else []}
+            return {"panels": panels, "site": site, "weather": self.weather, "log": self.log, "ml": "ML model" if ml_decide else "rules",
+                    "econ": {"panel_kw": ARRAY_KW, "tariff": TARIFF_INR, "clean_cost": CLEAN_COST_INR}}
     def push(self):
         data = f"data: {json.dumps(self.snapshot())}\n\n".encode()
         for q in list(self.clients): q.put(data)
@@ -110,7 +121,10 @@ class H(BaseHTTPRequestHandler):
             except Exception: pass
             finally: app.clients.remove(q)
         elif self.path.startswith("/api/command"):
-            with app.lock: c, app.pending = app.pending or {}, None
+            pid = self.path.split("panel=")[-1] if "panel=" in self.path else "P1"
+            with app.lock:
+                st = app.p.get(pid); c = (st["pending"] or {}) if st else {}
+                if st: st["pending"] = None
             self.reply(json.dumps(c).encode())
         elif self.path.startswith("/api/state"): self.reply(json.dumps(app.snapshot()).encode())
         else: self.reply((HERE.parent.parent / "1-ui-design" / "webapp" / "index.html").read_bytes(), "text/html; charset=utf-8")
@@ -124,7 +138,9 @@ class H(BaseHTTPRequestHandler):
                 app.weather = body
         elif self.path == "/api/clean":
             with app.lock:
-                if app.reading and not app.pending and app.prev_cs == 0: app.queue_clean("customer pressed Clean now")
+                for pid in ([body["panel_id"]] if body.get("panel_id") in app.p else list(app.p)):
+                    st = app.p[pid]
+                    if not st["pending"] and st["prev_cs"] == 0: app.queue_clean(pid, "customer pressed Clean now")
         else: return self.reply(code=404)
         self.reply()
 
